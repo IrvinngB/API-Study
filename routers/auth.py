@@ -3,25 +3,35 @@ from database import get_supabase_anon, get_user_supabase
 from models import UserProfile, UserProfileCreate, UserProfileUpdate
 from auth_middleware import get_current_user
 from typing import Dict, Any
+from pydantic import BaseModel
 
 router = APIRouter()
 
+class SignUpRequest(BaseModel):
+    email: str
+    password: str
+    name: str = None
+
+class SignInRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/signup")
-async def signup(email: str, password: str):
+async def signup(request: SignUpRequest):
     """Sign up a new user"""
     try:
         supabase = get_supabase_anon()
         response = supabase.auth.sign_up({
-            "email": email,
-            "password": password
+            "email": request.email,
+            "password": request.password
         })
         
         if response.user:
             # Create user profile
             profile_data = {
                 "id": response.user.id,
-                "email": email,
-                "full_name": None,
+                "email": request.email,
+                "full_name": request.name,
                 "timezone": "America/Panama"
             }
             
@@ -45,13 +55,13 @@ async def signup(email: str, password: str):
         )
 
 @router.post("/signin")
-async def signin(email: str, password: str):
+async def signin(request: SignInRequest):
     """Sign in user"""
     try:
         supabase = get_supabase_anon()
         response = supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password
+            "email": request.email,
+            "password": request.password
         })
         
         if response.user and response.session:
