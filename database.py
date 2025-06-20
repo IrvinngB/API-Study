@@ -1,5 +1,6 @@
 import os
 from supabase import create_client, Client
+from fastapi import HTTPException
 from typing import Optional
 from dotenv import load_dotenv
 # Cargar variables de entorno al inicio del módulo
