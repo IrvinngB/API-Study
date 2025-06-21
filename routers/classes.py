@@ -29,22 +29,34 @@ async def create_class(
 ):
     """Create a new class"""
     try:
-        supabase = get_user_supabase(current_user["token"])
+        print(f"🎓 Creating class for user: {current_user['user_id']}")
+        print(f"📋 Class data: {class_data.dict()}")
+        
+        # Use service client for database operations since user is already authenticated
+        from database import get_supabase_service
+        supabase = get_supabase_service()
         
         insert_data = class_data.dict()
         insert_data["user_id"] = current_user["user_id"]
         
+        print(f"💾 Inserting data: {insert_data}")
+        
         response = supabase.table("classes").insert(insert_data).execute()
         
+        print(f"📊 Supabase response: {response}")
+        
         if response.data:
+            print(f"✅ Class created successfully: {response.data[0]}")
             return response.data[0]
         else:
+            print("❌ No data returned from Supabase")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to create class"
             )
             
     except Exception as e:
+        print(f"❌ Error creating class: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

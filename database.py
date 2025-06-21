@@ -46,11 +46,24 @@ def get_user_supabase(access_token: str) -> Client:
         raise HTTPException(status_code=500, detail="Database not configured")
     
     client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    # Set the access token directly in the client
-    client.auth._session = type('Session', (), {
-        'access_token': access_token,
-        'refresh_token': None,
-        'expires_at': None,
-        'user': None
-    })()
+    
+    # Set the session properly with access and refresh tokens
+    try:
+        # Create a mock session object
+        session_data = {
+            "access_token": access_token,
+            "refresh_token": "",  # Empty but required
+            "expires_in": 3600,
+            "token_type": "bearer"
+        }
+        client.auth._session = type('Session', (), session_data)()
+        
+        # Set the access token directly in the client headers
+        client.options.headers.update({
+            "Authorization": f"Bearer {access_token}"
+        })
+        
+    except Exception as e:
+        print(f"❌ Error setting session: {e}")
+        
     return client
