@@ -46,5 +46,11 @@ def get_user_supabase(access_token: str) -> Client:
         raise HTTPException(status_code=500, detail="Database not configured")
     
     client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-    client.auth.set_session(access_token, "")
+    # Set the access token directly in the client
+    client.auth._session = type('Session', (), {
+        'access_token': access_token,
+        'refresh_token': None,
+        'expires_at': None,
+        'user': None
+    })()
     return client
