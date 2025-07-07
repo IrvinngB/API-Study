@@ -57,8 +57,6 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(classes.router, prefix="/classes", tags=["Classes"])
 app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(calendar.router, prefix="/calendar", tags=["Calendar"])
-app.include_router(habits.router, prefix="/habits", tags=["Habits"])
-app.include_router(sync.router, prefix="/sync", tags=["Synchronization"])
 app.include_router(grades.router, prefix="/grades", tags=["Grades"])
 
 
