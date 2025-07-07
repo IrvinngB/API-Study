@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 from dotenv import load_dotenv
 
-from routers import auth, classes, tasks, calendar, habits, sync, analytics
+from routers import auth, classes, tasks, calendar, habits, sync, grades
 from database import init_db
 from auth_middleware import verify_token
 
@@ -59,7 +59,8 @@ app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(calendar.router, prefix="/calendar", tags=["Calendar"])
 app.include_router(habits.router, prefix="/habits", tags=["Habits"])
 app.include_router(sync.router, prefix="/sync", tags=["Synchronization"])
-app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
+app.include_router(grades.router, prefix="/grades", tags=["Grades"])
+
 
 if __name__ == "__main__":
     import uvicorn

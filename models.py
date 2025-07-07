@@ -207,3 +207,53 @@ class StudySession(BaseModel):
     session_type: str = "study"
     device_id: Optional[str] = None
     created_at: datetime
+
+
+# --------- Grade Type Models ---------
+
+class GradeTypeBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class GradeTypeCreate(GradeTypeBase):
+    pass
+
+class GradeTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class GradeType(GradeTypeBase):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+
+# --------- Grade Models ---------
+
+class GradeBase(BaseModel):
+    class_id: UUID
+    grade_type_id: UUID
+    title: Optional[str] = None
+    score: float = Field(..., ge=0)
+    max_score: float = Field(default=100, ge=0)
+    weight: Optional[float] = Field(None, ge=0, le=100)
+    graded_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class GradeCreate(GradeBase):
+    pass
+
+class GradeUpdate(BaseModel):
+    class_id: Optional[UUID] = None
+    grade_type_id: Optional[UUID] = None
+    title: Optional[str] = None
+    score: Optional[float] = Field(None, ge=0)
+    max_score: Optional[float] = Field(None, ge=0)
+    weight: Optional[float] = Field(None, ge=0, le=100)
+    graded_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class Grade(GradeBase):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime
