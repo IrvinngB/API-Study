@@ -1,12 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 import os
 from dotenv import load_dotenv
 
 from routers import auth, classes, tasks, calendar, habits, sync, grades
 from database import init_db
-from auth_middleware import verify_token
 
 load_dotenv()
 
@@ -57,10 +56,12 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(classes.router, prefix="/classes", tags=["Classes"])
 app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(calendar.router, prefix="/calendar", tags=["Calendar"])
+app.include_router(habits.router, prefix="/habits", tags=["Habits"])
+app.include_router(sync.router, prefix="/sync", tags=["Sync"])
 app.include_router(grades.router, prefix="/grades", tags=["Grades"])
 
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", "8000"))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

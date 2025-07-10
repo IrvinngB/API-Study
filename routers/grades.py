@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query
 from database import get_user_supabase
 from auth_middleware import get_current_user
+from models import GradeType, GradeTypeCreate, GradeTypeUpdate, Grade, GradeCreate, GradeUpdate
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
@@ -8,7 +9,7 @@ router = APIRouter()
 
 # --------- GRADE TYPES ---------
 
-@router.get("/types", response_model=List[Dict[str, Any]])
+@router.get("/types", response_model=List[GradeType])
 async def get_grade_types(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -20,15 +21,15 @@ async def get_grade_types(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/types", response_model=Dict[str, Any])
+@router.post("/types", response_model=GradeType)
 async def create_grade_type(
-    data: Dict[str, Any],
+    data: GradeTypeCreate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Create a new grade type"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        insert_data = data.copy()
+        insert_data = data.model_dump()
         insert_data["user_id"] = current_user["user_id"]
         response = supabase.table("grade_types").insert(insert_data).execute()
         if response.data:
@@ -37,16 +38,17 @@ async def create_grade_type(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/types/{type_id}", response_model=Dict[str, Any])
+@router.put("/types/{type_id}", response_model=GradeType)
 async def update_grade_type(
     type_id: UUID,
-    data: Dict[str, Any],
+    data: GradeTypeUpdate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Update a grade type"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        response = supabase.table("grade_types").update(data).eq("id", str(type_id)).eq("user_id", current_user["user_id"]).execute()
+        update_data = data.model_dump(exclude_unset=True)
+        response = supabase.table("grade_types").update(update_data).eq("id", str(type_id)).eq("user_id", current_user["user_id"]).execute()
         if response.data:
             return response.data[0]
         raise HTTPException(status_code=404, detail="Grade type not found")
@@ -70,7 +72,7 @@ async def delete_grade_type(
 
 # --------- GRADES ---------
 
-@router.get("/", response_model=List[Dict[str, Any]])
+@router.get("/", response_model=List[Grade])
 async def get_grades(
     current_user: Dict[str, Any] = Depends(get_current_user),
     class_id: Optional[UUID] = Query(None)
@@ -86,15 +88,15 @@ async def get_grades(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/", response_model=Dict[str, Any])
+@router.post("/", response_model=Grade)
 async def create_grade(
-    data: Dict[str, Any],
+    data: GradeCreate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Create a new grade"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        insert_data = data.copy()
+        insert_data = data.model_dump()
         insert_data["user_id"] = current_user["user_id"]
         response = supabase.table("grades").insert(insert_data).execute()
         if response.data:
@@ -103,7 +105,7 @@ async def create_grade(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{grade_id}", response_model=Dict[str, Any])
+@router.get("/{grade_id}", response_model=Grade)
 async def get_grade(
     grade_id: UUID,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -118,16 +120,17 @@ async def get_grade(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{grade_id}", response_model=Dict[str, Any])
+@router.put("/{grade_id}", response_model=Grade)
 async def update_grade(
     grade_id: UUID,
-    data: Dict[str, Any],
+    data: GradeUpdate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Update a grade"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        response = supabase.table("grades").update(data).eq("id", str(grade_id)).eq("user_id", current_user["user_id"]).execute()
+        update_data = data.model_dump(exclude_unset=True)
+        response = supabase.table("grades").update(update_data).eq("id", str(grade_id)).eq("user_id", current_user["user_id"]).execute()
         if response.data:
             return response.data[0]
         raise HTTPException(status_code=404, detail="Grade not found")
