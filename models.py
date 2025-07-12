@@ -130,48 +130,52 @@ class CalendarEvent(CalendarEventBase):
     created_at: datetime
     updated_at: datetime
 
-# Habit Models
-class HabitBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    target_frequency: int = 7
-    color: str = "#10B981"
-    icon: Optional[str] = None
-    category: str = "study"
-    is_active: bool = True
+# Note Models
+class NoteBase(BaseModel):
+    title: str
+    content: str
+    ai_summary: Optional[str] = None
+    lesson_date: Optional[date] = None
+    tags: List[str] = []
+    local_files_path: str = "StudyFiles"
+    attachments: List[Dict[str, Any]] = []
+    is_favorite: bool = False
 
-class HabitCreate(HabitBase):
-    pass
+class NoteCreate(NoteBase):
+    class_id: UUID
 
-class HabitUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    target_frequency: Optional[int] = None
-    color: Optional[str] = None
-    icon: Optional[str] = None
-    category: Optional[str] = None
-    is_active: Optional[bool] = None
+class NoteUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    ai_summary: Optional[str] = None
+    lesson_date: Optional[date] = None
+    tags: Optional[List[str]] = None
+    local_files_path: Optional[str] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
+    is_favorite: Optional[bool] = None
 
-class Habit(HabitBase):
+class Note(NoteBase):
     id: UUID
     user_id: UUID
+    class_id: UUID
+    last_edited: datetime
     created_at: datetime
     updated_at: datetime
 
-class HabitLogBase(BaseModel):
-    completed_date: date
-    notes: Optional[str] = None
-    mood_rating: Optional[int] = Field(None, ge=1, le=5)
+class NoteVersionBase(BaseModel):
+    content: str
+    ai_summary: Optional[str] = None
+    change_description: Optional[str] = None
+    device_created: Optional[str] = None
 
-class HabitLogCreate(HabitLogBase):
-    habit_id: UUID
-    device_logged: Optional[str] = None
+class NoteVersionCreate(NoteVersionBase):
+    pass
 
-class HabitLog(HabitLogBase):
+class NoteVersion(NoteVersionBase):
     id: UUID
     user_id: UUID
-    habit_id: UUID
-    device_logged: Optional[str] = None
+    note_id: UUID
+    version_number: int
     created_at: datetime
 
 # Sync Models

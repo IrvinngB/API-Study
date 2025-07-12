@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer
 import os
 from dotenv import load_dotenv
 
-from routers import auth, classes, tasks, calendar, habits, sync, grades
+from routers import auth, classes, tasks, calendar, notes, sync, grades
 from database import init_db
 
 load_dotenv()
@@ -56,7 +56,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(classes.router, prefix="/classes", tags=["Classes"])
 app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(calendar.router, prefix="/calendar", tags=["Calendar"])
-app.include_router(habits.router, prefix="/habits", tags=["Habits"])
+app.include_router(notes.router, prefix="/notes", tags=["Notes"])
 app.include_router(sync.router, prefix="/sync", tags=["Sync"])
 app.include_router(grades.router, prefix="/grades", tags=["Grades"])
 

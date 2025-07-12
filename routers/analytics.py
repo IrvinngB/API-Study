@@ -91,15 +91,25 @@ async def get_dashboard_data(
             if t["completed_at"] and datetime.fromisoformat(t["completed_at"].replace('Z', '+00:00')).date() >= week_ago
         ])
         
-        # Get habits statistics
-        habits_response = supabase.table("habits").select("id, name").eq("user_id", current_user["user_id"]).eq("is_active", True).execute()
+        # Get notes statistics
+        notes_response = supabase.table("notes").select("id, title, class_id, lesson_date").eq("user_id", current_user["user_id"]).execute()
         
-        active_habits = len(habits_response.data)
+        total_notes = len(notes_response.data)
         
-        # Get habit logs for this week
-        habit_logs_response = supabase.table("habit_logs").select("habit_id, completed_date").eq("user_id", current_user["user_id"]).gte("completed_date", week_ago.isoformat()).execute()
+        # Get notes created this week
+        notes_this_week = len([
+            n for n in notes_response.data 
+            if n["created_at"] and datetime.fromisoformat(n["created_at"].replace('Z', '+00:00')).date() >= week_ago
+        ])
         
-        habit_completions_this_week = len(habit_logs_response.data)
+        # Get notes by class
+        notes_by_class = {}
+        for note in notes_response.data:
+            class_id = note["class_id"]
+            if class_id in notes_by_class:
+                notes_by_class[class_id] += 1
+            else:
+                notes_by_class[class_id] = 1
         
         # Get study sessions for this month
         study_sessions_response = supabase.table("study_sessions").select("total_duration_minutes, session_date").eq("user_id", current_user["user_id"]).gte("session_date", month_ago.isoformat()).execute()
@@ -118,10 +128,11 @@ async def get_dashboard_data(
                 "completed_this_week": completed_this_week,
                 "completion_rate": round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
             },
-            "habits": {
-                "active_habits": active_habits,
-                "completions_this_week": habit_completions_this_week,
-                "average_per_day": round(habit_completions_this_week / 7, 1)
+            "notes": {
+                "total_notes": total_notes,
+                "notes_this_week": notes_this_week,
+                "notes_by_class": notes_by_class,
+                "average_per_week": round(notes_this_week, 1)
             },
             "study_time": {
                 "total_minutes_this_month": total_study_time,
