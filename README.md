@@ -89,6 +89,7 @@ POST /auth/signin          # Inicio de sesión de usuario
 POST /auth/signout         # Cierre de sesión de usuario
 GET  /auth/profile         # Obtener perfil de usuario
 PUT  /auth/profile         # Actualizar perfil de usuario
+PATCH /auth/profile        # Actualización parcial del perfil
 ```
 
 ### Clases
@@ -97,6 +98,7 @@ GET    /classes            # Listar todas las clases
 POST   /classes            # Crear nueva clase
 GET    /classes/{id}       # Obtener clase específica
 PUT    /classes/{id}       # Actualizar clase
+PATCH  /classes/{id}       # Actualización parcial de clase
 DELETE /classes/{id}       # Eliminar clase
 ```
 
@@ -106,6 +108,7 @@ GET    /tasks              # Listar tareas (con filtros)
 POST   /tasks              # Crear nueva tarea
 GET    /tasks/{id}         # Obtener tarea específica
 PUT    /tasks/{id}         # Actualizar tarea
+PATCH  /tasks/{id}         # Actualización parcial de tarea
 DELETE /tasks/{id}         # Eliminar tarea
 POST   /tasks/{id}/complete # Marcar tarea como completada
 ```
@@ -116,6 +119,7 @@ GET    /calendar           # Listar eventos (con filtros)
 POST   /calendar           # Crear nuevo evento
 GET    /calendar/{id}      # Obtener evento específico
 PUT    /calendar/{id}      # Actualizar evento
+PATCH  /calendar/{id}      # Actualización parcial de evento
 DELETE /calendar/{id}      # Eliminar evento
 ```
 
@@ -143,6 +147,37 @@ GET    /analytics/productivity    # Obtener métricas de productividad
 GET    /analytics/study-sessions  # Obtener sesiones de estudio
 GET    /analytics/dashboard       # Obtener datos del dashboard
 POST   /analytics/study-session   # Crear sesión de estudio
+```
+
+### Notificaciones
+```http
+GET    /notifications            # Listar notificaciones
+POST   /notifications           # Crear notificación
+GET    /notifications/{id}      # Obtener notificación específica
+PUT    /notifications/{id}      # Actualizar notificación
+PATCH  /notifications/{id}      # Actualización parcial de notificación
+DELETE /notifications/{id}      # Eliminar notificación
+POST   /notifications/{id}/mark-read # Marcar como leída
+```
+
+### Dispositivos de Usuario
+```http
+GET    /devices                 # Listar dispositivos
+POST   /devices                 # Registrar dispositivo
+GET    /devices/{id}            # Obtener dispositivo específico
+PUT    /devices/{id}            # Actualizar dispositivo
+PATCH  /devices/{id}            # Actualización parcial de dispositivo
+DELETE /devices/{id}            # Desactivar dispositivo
+POST   /devices/{id}/sync       # Actualizar timestamp de sincronización
+```
+
+### Perfil de Usuario
+```http
+GET    /profile/me              # Obtener perfil actual
+POST   /profile                 # Crear perfil
+PUT    /profile/me              # Actualizar perfil
+PATCH  /profile/me              # Actualización parcial de perfil
+DELETE /profile/me              # Eliminar perfil
 ```
 
 ## 🔐 Autenticación
@@ -698,3 +733,119 @@ La API está desplegada en Railway. Ver [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md) p
 ## 📄 Licencia
 
 Este proyecto está licenciado bajo la Licencia MIT.
+
+## 🧑‍💻 Ejemplos de Uso de la API
+
+### Crear una clase
+```bash
+curl -X POST http://localhost:8000/classes \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Matemáticas II",
+    "code": "MAT2024",
+    "instructor": "Prof. García",
+    "color": "#3B82F6",
+    "credits": 4,
+    "semester": "2025A",
+    "description": "Álgebra avanzada"
+  }'
+```
+
+### Actualizar parcialmente una clase (PATCH)
+```bash
+curl -X PATCH http://localhost:8000/classes/<id-clase> \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instructor": "Prof. Juan Pérez",
+    "color": "#F59E0B"
+  }'
+```
+
+### Eliminar una clase
+```bash
+curl -X DELETE http://localhost:8000/classes/<id-clase> \
+  -H "Authorization: Bearer <tu-jwt-token>"
+```
+
+### Crear una tarea
+```bash
+curl -X POST http://localhost:8000/tasks \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Resolver ejercicios de álgebra",
+    "due_date": "2025-07-20T23:59:00Z",
+    "priority": 1,
+    "class_id": "<id-clase>"
+  }'
+```
+
+### Actualizar parcialmente una tarea (PATCH)
+```bash
+curl -X PATCH http://localhost:8000/tasks/<id-tarea> \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed",
+    "completion_percentage": 100
+  }'
+```
+
+### Marcar tarea como completada
+```bash
+curl -X POST http://localhost:8000/tasks/<id-tarea>/complete \
+  -H "Authorization: Bearer <tu-jwt-token>"
+```
+
+### Crear evento de calendario
+```bash
+curl -X POST http://localhost:8000/calendar \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Examen final",
+    "start_datetime": "2025-07-25T09:00:00Z",
+    "end_datetime": "2025-07-25T11:00:00Z",
+    "class_id": "<id-clase>"
+  }'
+```
+
+### Actualizar parcialmente un evento de calendario (PATCH)
+```bash
+curl -X PATCH http://localhost:8000/calendar/<id-evento> \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "Aula 101"
+  }'
+```
+
+### Crear notificación
+```bash
+curl -X POST http://localhost:8000/notifications \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Recordatorio de entrega",
+    "message": "No olvides entregar la tarea de matemáticas hoy."
+  }'
+```
+
+### Marcar notificación como leída
+```bash
+curl -X POST http://localhost:8000/notifications/<id-notificacion>/mark-read \
+  -H "Authorization: Bearer <tu-jwt-token>"
+```
+
+### Actualizar parcialmente el perfil de usuario (PATCH)
+```bash
+curl -X PATCH http://localhost:8000/profile/me \
+  -H "Authorization: Bearer <tu-jwt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "full_name": "Juan Pérez",
+    "timezone": "America/Mexico_City"
+  }'
+```

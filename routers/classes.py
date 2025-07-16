@@ -115,6 +115,42 @@ async def update_class(
             detail=str(e)
         )
 
+@router.patch("/{class_id}", response_model=Class)
+async def patch_class(
+    class_id: UUID,
+    class_update: ClassUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Partially update a class (PATCH method)"""
+    try:
+        supabase = get_user_supabase(current_user["token"])
+        
+        # Only include non-None values in the update
+        update_data = class_update.dict(exclude_unset=True, exclude_none=True)
+        if not update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields provided for update"
+            )
+            
+        update_data["updated_at"] = "now()"
+        
+        response = supabase.table("classes").update(update_data).eq("id", str(class_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if response.data:
+            return response.data[0]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Class not found"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
 @router.delete("/{class_id}")
 async def delete_class(
     class_id: UUID,

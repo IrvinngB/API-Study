@@ -122,6 +122,42 @@ async def update_event(
             detail=str(e)
         )
 
+@router.patch("/{event_id}", response_model=CalendarEvent)
+async def patch_event(
+    event_id: UUID,
+    event_update: CalendarEventUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Partially update a calendar event (PATCH method)"""
+    try:
+        supabase = get_user_supabase(current_user["token"])
+        
+        # Only include non-None values in the update
+        update_data = event_update.dict(exclude_unset=True, exclude_none=True)
+        if not update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields provided for update"
+            )
+            
+        update_data["updated_at"] = "now()"
+        
+        response = supabase.table("calendar_events").update(update_data).eq("id", str(event_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if response.data:
+            return response.data[0]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Event not found"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
 @router.delete("/{event_id}")
 async def delete_event(
     event_id: UUID,

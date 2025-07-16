@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from database import get_user_supabase
-from models import Task, TaskCreate, TaskUpdate
+from models import Notification, NotificationCreate, NotificationUpdate
 from auth_middleware import get_current_user
 from typing import List, Dict, Any, Optional
 from uuid import UUID
@@ -8,25 +8,19 @@ from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Task])
-async def get_tasks(
+@router.get("/", response_model=List[Notification])
+async def get_notifications(
     current_user: Dict[str, Any] = Depends(get_current_user),
-    class_id: Optional[UUID] = Query(None),
-    status: Optional[str] = Query(None),
-    priority: Optional[int] = Query(None),
-    limit: int = Query(100, le=1000)
+    is_read: Optional[bool] = Query(None),
+    limit: int = Query(50, le=100)
 ):
-    """Get tasks for the current user with optional filters"""
+    """Get notifications for the current user with optional filters"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        query = supabase.table("tasks").select("*").eq("user_id", current_user["user_id"])
+        query = supabase.table("notifications").select("*").eq("user_id", current_user["user_id"])
         
-        if class_id:
-            query = query.eq("class_id", str(class_id))
-        if status:
-            query = query.eq("status", status)
-        if priority:
-            query = query.eq("priority", priority)
+        if is_read is not None:
+            query = query.eq("is_read", is_read)
             
         query = query.limit(limit).order("created_at", desc=True)
         response = query.execute()
@@ -39,26 +33,26 @@ async def get_tasks(
             detail=str(e)
         )
 
-@router.post("/", response_model=Task)
-async def create_task(
-    task_data: TaskCreate,
+@router.post("/", response_model=Notification)
+async def create_notification(
+    notification_data: NotificationCreate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Create a new task"""
+    """Create a new notification"""
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        insert_data = task_data.dict()
+        insert_data = notification_data.dict()
         insert_data["user_id"] = current_user["user_id"]
         
-        response = supabase.table("tasks").insert(insert_data).execute()
+        response = supabase.table("notifications").insert(insert_data).execute()
         
         if response.data:
             return response.data[0]
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to create task"
+                detail="Failed to create notification"
             )
             
     except Exception as e:
@@ -67,22 +61,22 @@ async def create_task(
             detail=str(e)
         )
 
-@router.get("/{task_id}", response_model=Task)
-async def get_task(
-    task_id: UUID,
+@router.get("/{notification_id}", response_model=Notification)
+async def get_notification(
+    notification_id: UUID,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Get a specific task"""
+    """Get a specific notification"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        response = supabase.table("tasks").select("*").eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
+        response = supabase.table("notifications").select("*").eq("id", str(notification_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
             return response.data[0]
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
+                detail="Notification not found"
             )
             
     except Exception as e:
@@ -91,31 +85,26 @@ async def get_task(
             detail=str(e)
         )
 
-@router.put("/{task_id}", response_model=Task)
-async def update_task(
-    task_id: UUID,
-    task_update: TaskUpdate,
+@router.put("/{notification_id}", response_model=Notification)
+async def update_notification(
+    notification_id: UUID,
+    notification_update: NotificationUpdate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Update a task"""
+    """Update a notification"""
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = task_update.dict(exclude_unset=True)
-        update_data["updated_at"] = "now()"
+        update_data = notification_update.dict(exclude_unset=True)
         
-        # If marking as completed, set completed_at
-        if update_data.get("status") == "completed" and not update_data.get("completed_at"):
-            update_data["completed_at"] = datetime.utcnow().isoformat()
-        
-        response = supabase.table("tasks").update(update_data).eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
+        response = supabase.table("notifications").update(update_data).eq("id", str(notification_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
             return response.data[0]
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
+                detail="Notification not found"
             )
             
     except Exception as e:
@@ -124,38 +113,32 @@ async def update_task(
             detail=str(e)
         )
 
-@router.patch("/{task_id}", response_model=Task)
-async def patch_task(
-    task_id: UUID,
-    task_update: TaskUpdate,
+@router.patch("/{notification_id}", response_model=Notification)
+async def patch_notification(
+    notification_id: UUID,
+    notification_update: NotificationUpdate,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Partially update a task (PATCH method)"""
+    """Partially update a notification (PATCH method)"""
     try:
         supabase = get_user_supabase(current_user["token"])
         
         # Only include non-None values in the update
-        update_data = task_update.dict(exclude_unset=True, exclude_none=True)
+        update_data = notification_update.dict(exclude_unset=True, exclude_none=True)
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No fields provided for update"
             )
-            
-        update_data["updated_at"] = "now()"
         
-        # If marking as completed, set completed_at
-        if update_data.get("status") == "completed" and not update_data.get("completed_at"):
-            update_data["completed_at"] = datetime.utcnow().isoformat()
-        
-        response = supabase.table("tasks").update(update_data).eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
+        response = supabase.table("notifications").update(update_data).eq("id", str(notification_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
             return response.data[0]
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
+                detail="Notification not found"
             )
             
     except Exception as e:
@@ -164,54 +147,51 @@ async def patch_task(
             detail=str(e)
         )
 
-@router.delete("/{task_id}")
-async def delete_task(
-    task_id: UUID,
+@router.post("/{notification_id}/mark-read")
+async def mark_notification_read(
+    notification_id: UUID,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Delete a task"""
-    try:
-        supabase = get_user_supabase(current_user["token"])
-        response = supabase.table("tasks").delete().eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
-        
-        if response.data:
-            return {"message": "Task deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
-            
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-@router.post("/{task_id}/complete")
-async def complete_task(
-    task_id: UUID,
-    current_user: Dict[str, Any] = Depends(get_current_user)
-):
-    """Mark a task as completed"""
+    """Mark a notification as read"""
     try:
         supabase = get_user_supabase(current_user["token"])
         
         update_data = {
-            "status": "completed",
-            "completion_percentage": 100,
-            "completed_at": datetime.utcnow().isoformat(),
-            "updated_at": "now()"
+            "is_read": True
         }
         
-        response = supabase.table("tasks").update(update_data).eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
+        response = supabase.table("notifications").update(update_data).eq("id", str(notification_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
-            return response.data[0]
+            return {"message": "Notification marked as read"}
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
+                detail="Notification not found"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+@router.delete("/{notification_id}")
+async def delete_notification(
+    notification_id: UUID,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Delete a notification"""
+    try:
+        supabase = get_user_supabase(current_user["token"])
+        response = supabase.table("notifications").delete().eq("id", str(notification_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if response.data:
+            return {"message": "Notification deleted successfully"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
             )
             
     except Exception as e:

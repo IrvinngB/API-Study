@@ -162,22 +162,6 @@ class Note(NoteBase):
     created_at: datetime
     updated_at: datetime
 
-class NoteVersionBase(BaseModel):
-    content: str
-    ai_summary: Optional[str] = None
-    change_description: Optional[str] = None
-    device_created: Optional[str] = None
-
-class NoteVersionCreate(NoteVersionBase):
-    pass
-
-class NoteVersion(NoteVersionBase):
-    id: UUID
-    user_id: UUID
-    note_id: UUID
-    version_number: int
-    created_at: datetime
-
 # Sync Models
 class SyncRequest(BaseModel):
     device_id: str
@@ -190,56 +174,22 @@ class SyncResponse(BaseModel):
     data: Dict[str, List[Dict[str, Any]]]
     conflicts: List[Dict[str, Any]] = []
 
-# Analytics Models
-class ProductivityMetrics(BaseModel):
-    metric_date: date
-    total_study_minutes: int = 0
-    tasks_completed: int = 0
-    tasks_created: int = 0
-    classes_attended: int = 0
-    productivity_score: Optional[float] = None
-
-class StudySession(BaseModel):
-    id: UUID
-    user_id: UUID
-    class_id: Optional[UUID] = None
-    task_id: Optional[UUID] = None
-    session_date: date
-    total_duration_minutes: int
-    session_count: int = 1
-    average_productivity: Optional[float] = None
-    session_type: str = "study"
-    device_id: Optional[str] = None
-    created_at: datetime
 
 
-# --------- Grade Type Models ---------
-
-class GradeTypeBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-class GradeTypeCreate(GradeTypeBase):
-    pass
-
-class GradeTypeUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-class GradeType(GradeTypeBase):
-    id: UUID
-    user_id: UUID
-    created_at: datetime
 
 # --------- Grade Models ---------
 
 class GradeBase(BaseModel):
     class_id: UUID
-    grade_type_id: UUID
     title: Optional[str] = None
+    name: str = Field(default="General")
+    description: Optional[str] = None
     score: float = Field(..., ge=0)
     max_score: float = Field(default=100, ge=0)
     weight: Optional[float] = Field(None, ge=0, le=100)
+    value: Optional[float] = None
+    calendar_event_id: Optional[UUID] = None
+    event_type: Optional[str] = None
     graded_at: Optional[datetime] = None
     notes: Optional[str] = None
 
@@ -248,11 +198,15 @@ class GradeCreate(GradeBase):
 
 class GradeUpdate(BaseModel):
     class_id: Optional[UUID] = None
-    grade_type_id: Optional[UUID] = None
     title: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
     score: Optional[float] = Field(None, ge=0)
     max_score: Optional[float] = Field(None, ge=0)
     weight: Optional[float] = Field(None, ge=0, le=100)
+    value: Optional[float] = None
+    calendar_event_id: Optional[UUID] = None
+    event_type: Optional[str] = None
     graded_at: Optional[datetime] = None
     notes: Optional[str] = None
 
@@ -261,3 +215,49 @@ class Grade(GradeBase):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+
+# Notification Models
+class NotificationBase(BaseModel):
+    title: str
+    message: str
+    action_url: Optional[str] = None
+    type: str = "info"
+    scheduled_for: Optional[datetime] = None
+
+class NotificationCreate(NotificationBase):
+    pass
+
+class NotificationUpdate(BaseModel):
+    title: Optional[str] = None
+    message: Optional[str] = None
+    action_url: Optional[str] = None
+    type: Optional[str] = None
+    scheduled_for: Optional[datetime] = None
+    is_read: Optional[bool] = None
+
+class Notification(NotificationBase):
+    id: UUID
+    user_id: UUID
+    is_read: bool = False
+    sent_at: Optional[datetime] = None
+    created_at: datetime
+
+# User Device Models
+class UserDeviceBase(BaseModel):
+    device_id: str
+    device_name: Optional[str] = None
+    device_type: Optional[str] = None
+    is_active: bool = True
+
+class UserDeviceCreate(UserDeviceBase):
+    pass
+
+class UserDeviceUpdate(BaseModel):
+    device_name: Optional[str] = None
+    device_type: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class UserDevice(UserDeviceBase):
+    user_id: UUID
+    last_sync: datetime
+    created_at: datetime
