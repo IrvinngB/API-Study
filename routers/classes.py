@@ -36,7 +36,8 @@ async def create_class(
         from database import get_supabase_service
         supabase = get_supabase_service()
         
-        insert_data = class_data.dict()
+        # Serialize fields properly
+        insert_data = class_data.model_dump(mode='json')
         insert_data["user_id"] = current_user["user_id"]
         
         print(f"💾 Inserting data: {insert_data}")
@@ -96,7 +97,8 @@ async def update_class(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = class_update.dict(exclude_unset=True)
+        # Serialize fields properly
+        update_data = class_update.model_dump(exclude_unset=True, mode='json')
         update_data["updated_at"] = "now()"
         
         response = supabase.table("classes").update(update_data).eq("id", str(class_id)).eq("user_id", current_user["user_id"]).execute()
@@ -125,8 +127,8 @@ async def patch_class(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = class_update.dict(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize fields properly
+        update_data = class_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

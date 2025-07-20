@@ -27,7 +27,10 @@ async def signup(request: SignUpRequest):
         })
         
         if response.user:
-            # Create user profile
+            # Create user profile using service client
+            from database import get_supabase_service
+            service_supabase = get_supabase_service()
+            
             profile_data = {
                 "id": response.user.id,
                 "email": request.email,
@@ -35,7 +38,12 @@ async def signup(request: SignUpRequest):
                 "timezone": "America/Panama"
             }
             
-            supabase.table("user_profiles").insert(profile_data).execute()
+            try:
+                profile_response = service_supabase.table("user_profiles").insert(profile_data).execute()
+                print(f"✅ Profile created: {profile_response.data}")
+            except Exception as profile_error:
+                print(f"❌ Failed to create profile: {profile_error}")
+                # Don't fail the signup if profile creation fails, but log it
             
             return {
                 "message": "User created successfully",
@@ -106,10 +114,23 @@ async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
         if response.data:
             return response.data[0]
         else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Profile not found"
-            )
+            # Profile doesn't exist, create it
+            print(f"📝 Creating missing profile for user: {current_user['user_id']}")
+            profile_data = {
+                "id": current_user["user_id"],
+                "email": current_user["email"],
+                "full_name": None,
+                "timezone": "America/Panama"
+            }
+            
+            create_response = supabase.table("user_profiles").insert(profile_data).execute()
+            if create_response.data:
+                return create_response.data[0]
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create user profile"
+                )
             
     except Exception as e:
         raise HTTPException(
@@ -126,7 +147,8 @@ async def update_profile(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = profile_update.dict(exclude_unset=True)
+        # Serialize fields properly
+        update_data = profile_update.model_dump(exclude_unset=True, mode='json')
         update_data["updated_at"] = "now()"
         
         response = supabase.table("user_profiles").update(update_data).eq("id", current_user["user_id"]).execute()

@@ -51,7 +51,8 @@ async def create_note(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        insert_data = note_data.dict()
+        # Serialize datetime fields properly
+        insert_data = note_data.model_dump(mode='json')
         insert_data["user_id"] = current_user["user_id"]
         
         response = supabase.table("notes").insert(insert_data).execute()
@@ -119,7 +120,8 @@ async def update_note(
         
         # Get latest version number
         
-        update_data = note_update.dict(exclude_unset=True)
+        # Serialize datetime fields properly
+        update_data = note_update.model_dump(exclude_unset=True, mode='json')
         update_data["updated_at"] = "now()"
         update_data["last_edited"] = "now()"
         
@@ -151,8 +153,8 @@ async def patch_note(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = note_update.dict(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize datetime properly
+        update_data = note_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

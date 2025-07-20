@@ -33,7 +33,8 @@ async def create_grade(
     """Create a new grade"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        insert_data = data.model_dump()
+        # Serialize datetime fields properly
+        insert_data = data.model_dump(mode='json')
         insert_data["user_id"] = current_user["user_id"]
         response = supabase.table("grades").insert(insert_data).execute()
         if response.data:
@@ -66,7 +67,8 @@ async def update_grade(
     """Update a grade"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        update_data = data.model_dump(exclude_unset=True)
+        # Serialize datetime fields properly
+        update_data = data.model_dump(exclude_unset=True, mode='json')
         response = supabase.table("grades").update(update_data).eq("id", str(grade_id)).eq("user_id", current_user["user_id"]).execute()
         if response.data:
             return response.data[0]
@@ -84,8 +86,8 @@ async def patch_grade(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize datetime properly
+        update_data = data.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

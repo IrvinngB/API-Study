@@ -48,7 +48,8 @@ async def create_task(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        insert_data = task_data.dict()
+        # Serialize datetime fields properly
+        insert_data = task_data.model_dump(mode='json')
         insert_data["user_id"] = current_user["user_id"]
         
         response = supabase.table("tasks").insert(insert_data).execute()
@@ -101,7 +102,8 @@ async def update_task(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = task_update.dict(exclude_unset=True)
+        # Serialize datetime fields properly
+        update_data = task_update.model_dump(exclude_unset=True, mode='json')
         update_data["updated_at"] = "now()"
         
         # If marking as completed, set completed_at
@@ -134,8 +136,8 @@ async def patch_task(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = task_update.dict(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize datetime properly
+        update_data = task_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

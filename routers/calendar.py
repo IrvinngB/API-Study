@@ -50,7 +50,8 @@ async def create_event(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        insert_data = event_data.dict()
+        # Serialize datetime fields properly
+        insert_data = event_data.model_dump(mode='json')
         insert_data["user_id"] = current_user["user_id"]
         
         response = supabase.table("calendar_events").insert(insert_data).execute()
@@ -103,7 +104,8 @@ async def update_event(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = event_update.dict(exclude_unset=True)
+        # Serialize datetime fields properly
+        update_data = event_update.model_dump(exclude_unset=True, mode='json')
         update_data["updated_at"] = "now()"
         
         response = supabase.table("calendar_events").update(update_data).eq("id", str(event_id)).eq("user_id", current_user["user_id"]).execute()
@@ -132,8 +134,8 @@ async def patch_event(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = event_update.dict(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize datetime properly
+        update_data = event_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

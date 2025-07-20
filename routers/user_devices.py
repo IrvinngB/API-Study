@@ -37,16 +37,16 @@ async def register_device(
         existing_response = supabase.table("user_devices").select("*").eq("user_id", current_user["user_id"]).eq("device_id", device_data.device_id).execute()
         
         if existing_response.data:
-            # Update existing device
-            update_data = device_data.dict()
+            # Update existing device, serialize fields properly
+            update_data = device_data.model_dump(mode='json')
             update_data["last_sync"] = datetime.utcnow().isoformat()
             update_data["is_active"] = True
             
             response = supabase.table("user_devices").update(update_data).eq("user_id", current_user["user_id"]).eq("device_id", device_data.device_id).execute()
             return response.data[0]
         else:
-            # Create new device
-            insert_data = device_data.dict()
+            # Create new device, serialize fields properly
+            insert_data = device_data.model_dump(mode='json')
             insert_data["user_id"] = current_user["user_id"]
             
             response = supabase.table("user_devices").insert(insert_data).execute()
@@ -99,7 +99,8 @@ async def update_device(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = device_update.dict(exclude_unset=True)
+        # Serialize fields properly
+        update_data = device_update.model_dump(exclude_unset=True, mode='json')
         update_data["last_sync"] = datetime.utcnow().isoformat()
         
         response = supabase.table("user_devices").update(update_data).eq("user_id", current_user["user_id"]).eq("device_id", device_id).execute()
@@ -128,8 +129,8 @@ async def patch_device(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = device_update.dict(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize fields properly
+        update_data = device_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

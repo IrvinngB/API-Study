@@ -19,10 +19,23 @@ async def get_current_user_profile(
         if response.data:
             return response.data[0]
         else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User profile not found"
-            )
+            # Profile doesn't exist, create it
+            print(f"📝 Creating missing profile for user: {current_user['user_id']}")
+            profile_data = {
+                "id": current_user["user_id"],
+                "email": current_user["email"],
+                "full_name": None,
+                "timezone": "America/Panama"
+            }
+            
+            create_response = supabase.table("user_profiles").insert(profile_data).execute()
+            if create_response.data:
+                return create_response.data[0]
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create user profile"
+                )
             
     except Exception as e:
         raise HTTPException(
@@ -39,7 +52,8 @@ async def create_user_profile(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        insert_data = profile_data.dict()
+        # Serialize fields properly
+        insert_data = profile_data.model_dump(mode='json')
         insert_data["id"] = current_user["user_id"]
         
         response = supabase.table("user_profiles").insert(insert_data).execute()
@@ -67,7 +81,8 @@ async def update_user_profile(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        update_data = profile_update.dict(exclude_unset=True)
+        # Serialize fields properly
+        update_data = profile_update.model_dump(exclude_unset=True, mode='json')
         update_data["updated_at"] = "now()"
         
         response = supabase.table("user_profiles").update(update_data).eq("id", current_user["user_id"]).execute()
@@ -95,8 +110,8 @@ async def patch_user_profile(
     try:
         supabase = get_user_supabase(current_user["token"])
         
-        # Only include non-None values in the update
-        update_data = profile_update.dict(exclude_unset=True, exclude_none=True)
+        # Only include non-None values in the update, serialize fields properly
+        update_data = profile_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
