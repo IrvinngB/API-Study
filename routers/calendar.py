@@ -56,7 +56,12 @@ async def create_event(
         response = supabase.table("calendar_events").insert(insert_data).execute()
         
         if response.data:
-            return response.data[0]
+            event = response.data[0]
+            # Serializar campos datetime si existen
+            for field in ["start_datetime", "end_datetime", "created_at", "updated_at"]:
+                if field in event and isinstance(event[field], (datetime, date)):
+                    event[field] = event[field].isoformat()
+            return event
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -80,7 +85,11 @@ async def get_event(
         response = supabase.table("calendar_events").select("*").eq("id", str(event_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
-            return response.data[0]
+            event = response.data[0]
+            for field in ["start_datetime", "end_datetime", "created_at", "updated_at"]:
+                if field in event and isinstance(event[field], (datetime, date)):
+                    event[field] = event[field].isoformat()
+            return event
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -109,7 +118,11 @@ async def update_event(
         response = supabase.table("calendar_events").update(update_data).eq("id", str(event_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
-            return response.data[0]
+            event = response.data[0]
+            for field in ["start_datetime", "end_datetime", "created_at", "updated_at"]:
+                if field in event and isinstance(event[field], (datetime, date)):
+                    event[field] = event[field].isoformat()
+            return event
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -145,7 +158,11 @@ async def patch_event(
         response = supabase.table("calendar_events").update(update_data).eq("id", str(event_id)).eq("user_id", current_user["user_id"]).execute()
         
         if response.data:
-            return response.data[0]
+            event = response.data[0]
+            for field in ["start_datetime", "end_datetime", "created_at", "updated_at"]:
+                if field in event and isinstance(event[field], (datetime, date)):
+                    event[field] = event[field].isoformat()
+            return event
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
