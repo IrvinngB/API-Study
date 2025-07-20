@@ -106,6 +106,14 @@ class CalendarEventBase(BaseModel):
     recurrence_pattern: Dict[str, Any] = {}
     location: Optional[str] = None
     reminder_minutes: int = 15
+    
+    class Config:
+        # Configuración para serializar datetime a ISO format
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+        # Permitir que los campos datetime sean parseados desde strings
+        validate_assignment = True
 
 class CalendarEventCreate(CalendarEventBase):
     class_id: Optional[UUID] = None
@@ -120,6 +128,13 @@ class CalendarEventUpdate(BaseModel):
     recurrence_pattern: Optional[Dict[str, Any]] = None
     location: Optional[str] = None
     reminder_minutes: Optional[int] = None
+    
+    class Config:
+        # Misma configuración para el modelo de actualización
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+        validate_assignment = True
 
 class CalendarEvent(CalendarEventBase):
     id: UUID
@@ -129,6 +144,15 @@ class CalendarEvent(CalendarEventBase):
     external_calendar_sync: Dict[str, Any] = {}
     created_at: datetime
     updated_at: datetime
+    
+    class Config:
+        # Configuración completa para el modelo de respuesta
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+        validate_assignment = True
+        # Permitir la creación del modelo desde diccionarios (útil para datos de DB)
+        from_attributes = True
 
 # Note Models
 class NoteBase(BaseModel):
