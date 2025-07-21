@@ -1,8 +1,9 @@
 # routers/grades.py
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 from database import get_user_supabase
 from auth_middleware import get_current_user
@@ -12,13 +13,17 @@ from models import (
     GradeUpdate as GradeUpdateModel,
 )
 
-router = APIRouter(prefix="/grades", tags=["Grades"])
+router = APIRouter(tags=["Grades"])
 
 
 @router.get("/", response_model=List[GradeModel])
 async def list_grades(
     current_user: Dict[str, Any] = Depends(get_current_user),
-    class_id: Optional[UUID]         = Query(None, description="Filter by class UUID"),
+    class_id: Optional[UUID] = Query(
+        None,
+        title="Filter by class UUID",
+        description="UUID de la clase para filtrar calificaciones"
+    ),
 ):
     """
     List all grades for the authenticated user, optionally filtered by class.
@@ -32,7 +37,7 @@ async def list_grades(
             .eq("user_id", current_user["user_id"])
             .order("graded_at", desc=True)
         )
-        if class_id:
+        if class_id is not None:
             query = query.eq("class_id", str(class_id))
 
         result = query.execute()
@@ -41,11 +46,7 @@ async def list_grades(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
-@router.post(
-    "/",
-    response_model=GradeModel,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/", response_model=GradeModel, status_code=status.HTTP_201_CREATED)
 async def create_grade(
     payload: GradeCreateModel,
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -61,11 +62,7 @@ async def create_grade(
         result = supabase.table("grades").insert(data).execute()
         if result.data:
             return result.data[0]
-
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Failed to create grade",
-        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Failed to create grade")
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
@@ -89,10 +86,7 @@ async def get_grade(
             .execute()
         )
         if not result.data:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                detail="Grade not found",
-            )
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
         return result.data[0]
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -120,10 +114,7 @@ async def update_grade(
             .execute()
         )
         if not result.data:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                detail="Grade not found",
-            )
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
         return result.data[0]
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -144,12 +135,7 @@ async def patch_grade(
             exclude_unset=True, exclude_none=True, mode="json"
         )
         if not update_data:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail="No fields provided for update",
-            )
-
-        # Optionally stamp updated_at
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No fields provided")
         update_data["updated_at"] = "now()"
 
         result = (
@@ -161,10 +147,7 @@ async def patch_grade(
             .execute()
         )
         if not result.data:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                detail="Grade not found",
-            )
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
         return result.data[0]
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -189,9 +172,6 @@ async def delete_grade(
             .execute()
         )
         if not result.data:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                detail="Grade not found",
-            )
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
