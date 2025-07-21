@@ -7,20 +7,18 @@ from uuid import UUID
 from database import get_user_supabase
 from auth_middleware import get_current_user
 from models import (
-    CategoryGrade as Category,
+    CategoryGrade    as Category,
     CategoryGradeCreate as CategoryCreate,
     CategoryGradeUpdate as CategoryUpdate,
 )
 
-router = APIRouter(prefix="/categories", tags=["Categories"])
+router = APIRouter(tags=["categories"])
 
 
 @router.get("/", response_model=List[Category])
 async def list_categories(
     current_user: Dict[str, Any] = Depends(get_current_user),
-    class_id: Optional[UUID] = Query(
-        None, description="Filter by class UUID"
-    ),
+    class_id: Optional[UUID] = Query(None, description="Filter by class UUID"),
 ):
     """
     List all categories, optionally filtering by `class_id`.
@@ -54,11 +52,7 @@ async def create_category(
     try:
         supabase = get_user_supabase(current_user["token"])
         insert_data = payload.model_dump(mode="json")
-        result = (
-            supabase.table("categories_grades")
-            .insert(insert_data)
-            .execute()
-        )
+        result = supabase.table("categories_grades").insert(insert_data).execute()
         if result.data:
             return result.data[0]
 
@@ -117,7 +111,6 @@ async def update_category(
     try:
         supabase = get_user_supabase(current_user["token"])
         update_data = payload.model_dump(exclude_unset=True, mode="json")
-
         result = (
             supabase.table("categories_grades")
             .update(update_data)
