@@ -1,9 +1,12 @@
+# schemas.py
+
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from uuid import UUID
 
-# User Models
+# --------- User Models ---------
+
 class UserProfile(BaseModel):
     id: UUID
     email: str
@@ -15,6 +18,10 @@ class UserProfile(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    class Config:
+        from_attributes = True
+
+
 class UserProfileCreate(BaseModel):
     email: str
     full_name: Optional[str] = None
@@ -22,13 +29,16 @@ class UserProfileCreate(BaseModel):
     timezone: str = "America/Panama"
     preferences: Dict[str, Any] = {}
 
+
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
     timezone: Optional[str] = None
     preferences: Optional[Dict[str, Any]] = None
 
-# Class Models
+
+# --------- Class Models ---------
+
 class ClassBase(BaseModel):
     name: str
     code: Optional[str] = None
@@ -40,8 +50,10 @@ class ClassBase(BaseModel):
     syllabus_url: Optional[str] = None
     is_active: bool = True
 
+
 class ClassCreate(ClassBase):
     pass
+
 
 class ClassUpdate(BaseModel):
     name: Optional[str] = None
@@ -54,13 +66,19 @@ class ClassUpdate(BaseModel):
     syllabus_url: Optional[str] = None
     is_active: Optional[bool] = None
 
+
 class Class(ClassBase):
     id: UUID
     user_id: UUID
     created_at: datetime
     updated_at: datetime
 
-# Task Models
+    class Config:
+        from_attributes = True
+
+
+# --------- Task Models ---------
+
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -71,9 +89,11 @@ class TaskBase(BaseModel):
     completion_percentage: int = Field(default=0, ge=0, le=100)
     tags: List[str] = []
 
+
 class TaskCreate(TaskBase):
     class_id: Optional[UUID] = None
     device_created: Optional[str] = None
+
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -86,6 +106,7 @@ class TaskUpdate(BaseModel):
     tags: Optional[List[str]] = None
     completed_at: Optional[datetime] = None
 
+
 class Task(TaskBase):
     id: UUID
     user_id: UUID
@@ -95,7 +116,12 @@ class Task(TaskBase):
     updated_at: datetime
     completed_at: Optional[datetime] = None
 
-# Calendar Event Models
+    class Config:
+        from_attributes = True
+
+
+# --------- Calendar Event Models ---------
+
 class CalendarEventBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -106,17 +132,17 @@ class CalendarEventBase(BaseModel):
     recurrence_pattern: Dict[str, Any] = {}
     location: Optional[str] = None
     reminder_minutes: int = 15
-    
+
     class Config:
-        # Configuración para serializar datetime a ISO format
         json_encoders = {
             datetime: lambda v: v.isoformat() if v else None
         }
-        # Permitir que los campos datetime sean parseados desde strings
         validate_assignment = True
+
 
 class CalendarEventCreate(CalendarEventBase):
     class_id: Optional[UUID] = None
+
 
 class CalendarEventUpdate(BaseModel):
     title: Optional[str] = None
@@ -128,13 +154,13 @@ class CalendarEventUpdate(BaseModel):
     recurrence_pattern: Optional[Dict[str, Any]] = None
     location: Optional[str] = None
     reminder_minutes: Optional[int] = None
-    
+
     class Config:
-        # Misma configuración para el modelo de actualización
         json_encoders = {
             datetime: lambda v: v.isoformat() if v else None
         }
         validate_assignment = True
+
 
 class CalendarEvent(CalendarEventBase):
     id: UUID
@@ -144,17 +170,17 @@ class CalendarEvent(CalendarEventBase):
     external_calendar_sync: Dict[str, Any] = {}
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
-        # Configuración completa para el modelo de respuesta
         json_encoders = {
             datetime: lambda v: v.isoformat() if v else None
         }
         validate_assignment = True
-        # Permitir la creación del modelo desde diccionarios (útil para datos de DB)
         from_attributes = True
 
-# Note Models
+
+# --------- Note Models ---------
+
 class NoteBase(BaseModel):
     title: str
     content: str
@@ -165,8 +191,10 @@ class NoteBase(BaseModel):
     attachments: List[Dict[str, Any]] = []
     is_favorite: bool = False
 
+
 class NoteCreate(NoteBase):
     class_id: UUID
+
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None
@@ -178,6 +206,7 @@ class NoteUpdate(BaseModel):
     attachments: Optional[List[Dict[str, Any]]] = None
     is_favorite: Optional[bool] = None
 
+
 class Note(NoteBase):
     id: UUID
     user_id: UUID
@@ -186,11 +215,17 @@ class Note(NoteBase):
     created_at: datetime
     updated_at: datetime
 
-# Sync Models
+    class Config:
+        from_attributes = True
+
+
+# --------- Sync Models ---------
+
 class SyncRequest(BaseModel):
     device_id: str
     last_sync: Optional[datetime] = None
     tables: List[str] = []
+
 
 class SyncResponse(BaseModel):
     success: bool
@@ -199,40 +234,79 @@ class SyncResponse(BaseModel):
     conflicts: List[Dict[str, Any]] = []
 
 
+# --------- CategoryGrade Models ---------
+
+class CategoryGradeBase(BaseModel):
+    class_id: UUID
+    name: str
+    percentage: float
+
+    class Config:
+        validate_assignment = True
+
+
+class CategoryGradeCreate(CategoryGradeBase):
+    pass
+
+
+class CategoryGradeUpdate(BaseModel):
+    name: Optional[str] = None
+    percentage: Optional[float] = None
+
+    class Config:
+        validate_assignment = True
+
+
+class CategoryGrade(CategoryGradeBase):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+        validate_assignment = True
+        from_attributes = True
 
 
 # --------- Grade Models ---------
 
 class GradeBase(BaseModel):
     class_id: UUID
+    category_id: UUID
     title: Optional[str] = None
-    name: str = Field(default="General")
     description: Optional[str] = None
     score: float = Field(..., ge=0)
     max_score: float = Field(default=100, ge=0)
-    weight: Optional[float] = Field(None, ge=0, le=100)
-    value: Optional[float] = None
     calendar_event_id: Optional[UUID] = None
     event_type: Optional[str] = None
     graded_at: Optional[datetime] = None
     notes: Optional[str] = None
+
+    class Config:
+        validate_assignment = True
+
 
 class GradeCreate(GradeBase):
     pass
 
+
 class GradeUpdate(BaseModel):
     class_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
     title: Optional[str] = None
-    name: Optional[str] = None
     description: Optional[str] = None
     score: Optional[float] = Field(None, ge=0)
     max_score: Optional[float] = Field(None, ge=0)
-    weight: Optional[float] = Field(None, ge=0, le=100)
-    value: Optional[float] = None
     calendar_event_id: Optional[UUID] = None
     event_type: Optional[str] = None
     graded_at: Optional[datetime] = None
     notes: Optional[str] = None
+
+    class Config:
+        validate_assignment = True
+
 
 class Grade(GradeBase):
     id: UUID
@@ -240,7 +314,16 @@ class Grade(GradeBase):
     created_at: datetime
     updated_at: datetime
 
-# Notification Models
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+        validate_assignment = True
+        from_attributes = True
+
+
+# --------- Notification Models ---------
+
 class NotificationBase(BaseModel):
     title: str
     message: str
@@ -248,8 +331,10 @@ class NotificationBase(BaseModel):
     type: str = "info"
     scheduled_for: Optional[datetime] = None
 
+
 class NotificationCreate(NotificationBase):
     pass
+
 
 class NotificationUpdate(BaseModel):
     title: Optional[str] = None
@@ -259,6 +344,7 @@ class NotificationUpdate(BaseModel):
     scheduled_for: Optional[datetime] = None
     is_read: Optional[bool] = None
 
+
 class Notification(NotificationBase):
     id: UUID
     user_id: UUID
@@ -266,22 +352,33 @@ class Notification(NotificationBase):
     sent_at: Optional[datetime] = None
     created_at: datetime
 
-# User Device Models
+    class Config:
+        from_attributes = True
+
+
+# --------- User Device Models ---------
+
 class UserDeviceBase(BaseModel):
     device_id: str
     device_name: Optional[str] = None
     device_type: Optional[str] = None
     is_active: bool = True
 
+
 class UserDeviceCreate(UserDeviceBase):
     pass
+
 
 class UserDeviceUpdate(BaseModel):
     device_name: Optional[str] = None
     device_type: Optional[str] = None
     is_active: Optional[bool] = None
 
+
 class UserDevice(UserDeviceBase):
     user_id: UUID
     last_sync: datetime
     created_at: datetime
+
+    class Config:
+        from_attributes = True

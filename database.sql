@@ -19,8 +19,18 @@ CREATE TABLE public.calendar_events (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT calendar_events_pkey PRIMARY KEY (id),
-  CONSTRAINT calendar_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT calendar_events_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+  CONSTRAINT calendar_events_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
+  CONSTRAINT calendar_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.categories_grades (
+  class_id uuid NOT NULL,
+  name text NOT NULL,
+  percentage numeric NOT NULL,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT categories_grades_pkey PRIMARY KEY (id),
+  CONSTRAINT categories_grades_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
 );
 CREATE TABLE public.classes (
   user_id uuid NOT NULL,
@@ -40,7 +50,6 @@ CREATE TABLE public.classes (
   CONSTRAINT classes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.grades (
-  name character varying NOT NULL DEFAULT 'General'::character varying,
   description text,
   value numeric,
   calendar_event_id uuid,
@@ -49,16 +58,17 @@ CREATE TABLE public.grades (
   class_id uuid NOT NULL,
   title text,
   score numeric NOT NULL,
-  weight numeric,
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   max_score numeric DEFAULT 100,
   graded_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  category_id uuid NOT NULL,
   CONSTRAINT grades_pkey PRIMARY KEY (id),
+  CONSTRAINT grades_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
   CONSTRAINT fk_grades_calendar_event_id FOREIGN KEY (calendar_event_id) REFERENCES public.calendar_events(id),
-  CONSTRAINT grades_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT grades_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+  CONSTRAINT grades_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories_grades(id),
+  CONSTRAINT grades_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.notes (
   user_id uuid NOT NULL,
@@ -76,8 +86,8 @@ CREATE TABLE public.notes (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT notes_pkey PRIMARY KEY (id),
-  CONSTRAINT notes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT notes_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+  CONSTRAINT notes_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
+  CONSTRAINT notes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.notifications (
   user_id uuid NOT NULL,
