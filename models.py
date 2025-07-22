@@ -246,13 +246,12 @@ class CategoryGradeBase(BaseModel):
 
 
 class CategoryGradeCreate(CategoryGradeBase):
-    user_id: UUID  # ✅ Campo obligatorio al crear la categoría
+    pass   # ya no incluimos user_id aquí
 
 
 class CategoryGradeUpdate(BaseModel):
     name: Optional[str] = None
     percentage: Optional[float] = None
-    user_id: Optional[UUID] = None  # ✅ Solo si permites editar el ownership
 
     class Config:
         validate_assignment = True
@@ -260,7 +259,7 @@ class CategoryGradeUpdate(BaseModel):
 
 class CategoryGrade(CategoryGradeBase):
     id: UUID
-    user_id: UUID  # ✅ Incluido en el modelo completo
+    user_id: UUID        # lo mantenemos sólo en el modelo de respuesta
     created_at: datetime
     updated_at: datetime
 
@@ -270,7 +269,6 @@ class CategoryGrade(CategoryGradeBase):
         }
         validate_assignment = True
         from_attributes = True
-
 
 
 # --------- Grade Models ---------
