@@ -14,18 +14,17 @@ from models import (
 
 router = APIRouter(tags=["categories"])
 
-
 @router.get("/", response_model=List[Category])
 async def list_categories(
     current_user: Dict[str, Any] = Depends(get_current_user),
     class_id: Optional[UUID] = Query(None, description="Filter by class UUID"),
 ):
     """
-    List all categories, optionally filtering by `class_id`.
+    List all categories, optionally filtering by `class_id`, and always scoped to current user.
     """
     try:
         supabase = get_user_supabase(current_user["token"])
-        query = supabase.table("categories_grades").select("*")
+        query = supabase.table("categories_grades").select("*").eq("user_id", current_user["id"])  # ✅ filtro por usuario
 
         if class_id:
             query = query.eq("class_id", str(class_id))
@@ -34,7 +33,6 @@ async def list_categories(
         return result.data or []
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
 
 @router.post(
     "/",
@@ -47,11 +45,13 @@ async def create_category(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
-    Insert a new category for a given class.
+    Insert a new category for a given class. Automatically assigns current user's ID.
     """
     try:
         supabase = get_user_supabase(current_user["token"])
         insert_data = payload.model_dump(mode="json")
+        insert_data["user_id"] = current_user["id"]  # ✅ asignar usuario autenticado
+
         result = supabase.table("categories_grades").insert(insert_data).execute()
         if result.data:
             return result.data[0]
@@ -63,7 +63,6 @@ async def create_category(
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-
 @router.get(
     "/{category_id}",
     response_model=Category,
@@ -74,7 +73,7 @@ async def get_category(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
-    Retrieve a single category by its UUID.
+    Retrieve a single category by its UUID, scoped to current user.
     """
     try:
         supabase = get_user_supabase(current_user["token"])
@@ -82,6 +81,7 @@ async def get_category(
             supabase.table("categories_grades")
             .select("*")
             .eq("id", str(category_id))
+            .eq("user_id", current_user["id"])  # ✅ verificación de propiedad
             .execute()
         )
         data = result.data or []
@@ -93,7 +93,6 @@ async def get_category(
         )
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
 
 @router.put(
     "/{category_id}",
@@ -106,7 +105,7 @@ async def update_category(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
-    Replace `name` and/or `percentage` fields of an existing category.
+    Replace `name` and/or `percentage` fields of an existing category, scoped to owner.
     """
     try:
         supabase = get_user_supabase(current_user["token"])
@@ -115,6 +114,7 @@ async def update_category(
             supabase.table("categories_grades")
             .update(update_data)
             .eq("id", str(category_id))
+            .eq("user_id", current_user["id"])  # ✅ protege que solo el dueño edite
             .execute()
         )
         data = result.data or []
@@ -127,7 +127,6 @@ async def update_category(
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-
 @router.delete(
     "/{category_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -138,7 +137,7 @@ async def delete_category(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
-    Remove a category by its UUID.
+    Remove a category by its UUID, scoped to ownership.
     """
     try:
         supabase = get_user_supabase(current_user["token"])
@@ -146,6 +145,7 @@ async def delete_category(
             supabase.table("categories_grades")
             .delete()
             .eq("id", str(category_id))
+            .eq("user_id", current_user["id"])  # ✅ verificación de propiedad
             .execute()
         )
         if not result.data:
