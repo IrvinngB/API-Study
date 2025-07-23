@@ -24,7 +24,7 @@ async def list_categories(
     """
     try:
         supabase = get_user_supabase(current_user["token"])
-        query = supabase.table("categories_grades").select("*").eq("user_id", current_user["id"])
+        query = supabase.table("categories_grades").select("*").eq("user_id", current_user["user_id"])
         if class_id:
             query = query.eq("class_id", str(class_id))
         result = query.order("created_at", desc=False).execute()
@@ -48,7 +48,7 @@ async def create_category(
     try:
         supabase = get_user_supabase(current_user["token"])
         insert_data = payload.model_dump(mode="json")
-        insert_data["user_id"] = current_user["id"]
+        insert_data["user_id"] = current_user["user_id"]
         result = supabase.table("categories_grades").insert(insert_data).execute()
         if result.data:
             return result.data[0]
