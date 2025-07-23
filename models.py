@@ -1,4 +1,4 @@
-# schemas.py
+# models.py
 
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -280,8 +280,8 @@ class GradeBase(BaseModel):
     description: Optional[str] = None
     score: float = Field(..., ge=0)
     max_score: float = Field(default=100, ge=0)
-    calendar_event_id: Optional[UUID] = None
-    event_type: Optional[str] = None
+    calendar_event_id: Optional[UUID] = Field(default=None)
+    event_type: Optional[str] = Field(default=None)
     graded_at: Optional[datetime] = None
     notes: Optional[str] = None
 

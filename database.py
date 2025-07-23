@@ -1,3 +1,4 @@
+# database.py
 import os
 from supabase import create_client, Client
 from fastapi import HTTPException

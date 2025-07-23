@@ -1,3 +1,4 @@
+#auth_middleware.py
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from database import get_supabase_service
