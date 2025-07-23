@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from database import get_user_supabase
 from models import Note, NoteCreate, NoteUpdate
@@ -5,6 +6,8 @@ from auth_middleware import get_current_user
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 from datetime import date, datetime
+import os
+import httpx
 
 router = APIRouter()
 
@@ -270,38 +273,46 @@ async def generate_ai_summary(
     """Generate AI summary for a note"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        
         # Get the note
         response = supabase.table("notes").select("*").eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
-        
         if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Note not found"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
         note = response.data[0]
-        
-        # TODO: Integrate with AI service to generate summary
-        # For now, return a placeholder
-        ai_summary = f"AI Summary of: {note['title'][:50]}..."
-        
-        # Update the note with AI summary
+
+        # Obtener la URL de la IA desde variable de entorno
+        ai_url = os.getenv("AI_SUMMARY_URL")
+        if not ai_url:
+            raise HTTPException(status_code=500, detail="AI_SUMMARY_URL not configured")
+
+        # Preparar el contenido para la IA
+        content_to_summarize = f"{note['title']}\n\n{note['content']}"
+
+        # Llamar al servicio externo de IA
+        async with httpx.AsyncClient(timeout=60) as client:
+            ai_response = await client.post(
+                ai_url,
+                json={"notes": content_to_summarize},
+                headers={"Content-Type": "application/json"}
+            )
+        if ai_response.status_code != 200:
+            raise HTTPException(status_code=502, detail="Error al consultar el servicio de IA")
+        ai_data = ai_response.json()
+        if not ai_data.get("success") or not ai_data.get("summary"):
+            raise HTTPException(status_code=502, detail="La IA no devolvió un resumen válido")
+
+        # Formatear el resumen (puedes guardar el JSON o el texto formateado)
+        ai_summary = ai_data["summary"] if isinstance(ai_data["summary"], str) else str(ai_data["summary"])
+
+        # Actualizar la nota con el resumen generado
         update_response = supabase.table("notes").update({
             "ai_summary": ai_summary,
             "updated_at": "now()"
         }).eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
-        
+
         if update_response.data:
             return {"message": "AI summary generated successfully", "ai_summary": ai_summary}
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to update note with AI summary"
-            )
-            
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update note with AI summary")
+
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
