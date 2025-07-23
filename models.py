@@ -283,7 +283,6 @@ class GradeBase(BaseModel):
     calendar_event_id: Optional[UUID] = Field(default=None)
     event_type: Optional[str] = Field(default=None)
     graded_at: Optional[datetime] = None
-    notes: Optional[str] = None
 
     class Config:
         validate_assignment = True
@@ -303,7 +302,6 @@ class GradeUpdate(BaseModel):
     calendar_event_id: Optional[UUID] = None
     event_type: Optional[str] = None
     graded_at: Optional[datetime] = None
-    notes: Optional[str] = None
 
     class Config:
         validate_assignment = True
