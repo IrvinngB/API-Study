@@ -24,15 +24,13 @@ async def list_categories(
     """
     try:
         supabase = get_user_supabase(current_user["token"])
-        query = supabase.table("categories_grades").select("*").eq("user_id", current_user["id"])  # ✅ filtro por usuario
-
+        query = supabase.table("categories_grades").select("*").eq("user_id", current_user["id"])
         if class_id:
             query = query.eq("class_id", str(class_id))
-
         result = query.order("created_at", desc=False).execute()
         return result.data or []
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error listing categories: {exc}")
 
 @router.post(
     "/",
@@ -50,18 +48,13 @@ async def create_category(
     try:
         supabase = get_user_supabase(current_user["token"])
         insert_data = payload.model_dump(mode="json")
-        insert_data["user_id"] = current_user["id"]  # ✅ asignar usuario autenticado
-
+        insert_data["user_id"] = current_user["id"]
         result = supabase.table("categories_grades").insert(insert_data).execute()
         if result.data:
             return result.data[0]
-
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Failed to create category",
-        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Failed to create category")
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error creating category: {exc}")
 
 @router.get(
     "/{category_id}",
@@ -81,18 +74,15 @@ async def get_category(
             supabase.table("categories_grades")
             .select("*")
             .eq("id", str(category_id))
-            .eq("user_id", current_user["id"])  # ✅ verificación de propiedad
+            .eq("user_id", current_user["id"])
             .execute()
         )
         data = result.data or []
         if data:
             return data[0]
-
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, detail="Category not found"
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error retrieving category: {exc}")
 
 @router.put(
     "/{category_id}",
@@ -114,18 +104,15 @@ async def update_category(
             supabase.table("categories_grades")
             .update(update_data)
             .eq("id", str(category_id))
-            .eq("user_id", current_user["id"])  # ✅ protege que solo el dueño edite
+            .eq("user_id", current_user["id"])
             .execute()
         )
         data = result.data or []
         if data:
             return data[0]
-
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, detail="Category not found"
-        )
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error updating category: {exc}")
 
 @router.delete(
     "/{category_id}",
@@ -145,12 +132,10 @@ async def delete_category(
             supabase.table("categories_grades")
             .delete()
             .eq("id", str(category_id))
-            .eq("user_id", current_user["id"])  # ✅ verificación de propiedad
+            .eq("user_id", current_user["id"])
             .execute()
         )
         if not result.data:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, detail="Category not found"
-            )
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Category not found")
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error deleting category: {exc}")

@@ -34,7 +34,7 @@ async def list_grades(
             supabase
             .table("grades")
             .select("*")
-            .eq("user_id", current_user["user_id"])
+            .eq("user_id", current_user["id"])
             .order("graded_at", desc=True)
         )
         if class_id is not None:
@@ -43,7 +43,7 @@ async def list_grades(
         result = query.execute()
         return result.data or []
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error listing grades: {exc}")
 
 
 @router.post("/", response_model=GradeModel, status_code=status.HTTP_201_CREATED)
@@ -57,14 +57,14 @@ async def create_grade(
     try:
         supabase = get_user_supabase(current_user["token"])
         data = payload.model_dump(mode="json")
-        data["user_id"] = current_user["user_id"]
+        data["user_id"] = current_user["id"]
 
         result = supabase.table("grades").insert(data).execute()
         if result.data:
             return result.data[0]
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Failed to create grade")
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error creating grade: {exc}")
 
 
 @router.get("/{grade_id}", response_model=GradeModel)
@@ -82,14 +82,14 @@ async def get_grade(
             .table("grades")
             .select("*")
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["user_id"])
+            .eq("user_id", current_user["id"])
             .execute()
         )
         if not result.data:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
         return result.data[0]
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error retrieving grade: {exc}")
 
 
 @router.put("/{grade_id}", response_model=GradeModel)
@@ -110,14 +110,14 @@ async def update_grade(
             .table("grades")
             .update(update_data)
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["user_id"])
+            .eq("user_id", current_user["id"])
             .execute()
         )
         if not result.data:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
         return result.data[0]
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error updating grade: {exc}")
 
 
 @router.patch("/{grade_id}", response_model=GradeModel)
@@ -136,21 +136,20 @@ async def patch_grade(
         )
         if not update_data:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No fields provided")
-        update_data["updated_at"] = "now()"
 
         result = (
             supabase
             .table("grades")
             .update(update_data)
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["user_id"])
+            .eq("user_id", current_user["id"])
             .execute()
         )
         if not result.data:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
         return result.data[0]
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error patching grade: {exc}")
 
 
 @router.delete("/{grade_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -168,10 +167,10 @@ async def delete_grade(
             .table("grades")
             .delete()
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["user_id"])
+            .eq("user_id", current_user["id"])
             .execute()
         )
         if not result.data:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Grade not found")
     except Exception as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error deleting grade: {exc}")
