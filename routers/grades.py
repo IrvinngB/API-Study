@@ -34,7 +34,7 @@ async def list_grades(
             supabase
             .table("grades")
             .select("*")
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .order("graded_at", desc=True)
         )
         if class_id is not None:
@@ -57,7 +57,7 @@ async def create_grade(
     try:
         supabase = get_user_supabase(current_user["token"])
         data = payload.model_dump(mode="json")
-        data["user_id"] = current_user["id"]
+        data["user_id"] = current_user["user_id"]
 
         result = supabase.table("grades").insert(data).execute()
         if result.data:
@@ -82,7 +82,7 @@ async def get_grade(
             .table("grades")
             .select("*")
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         if not result.data:
@@ -110,7 +110,7 @@ async def update_grade(
             .table("grades")
             .update(update_data)
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         if not result.data:
@@ -142,7 +142,7 @@ async def patch_grade(
             .table("grades")
             .update(update_data)
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         if not result.data:
@@ -167,7 +167,7 @@ async def delete_grade(
             .table("grades")
             .delete()
             .eq("id", str(grade_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         if not result.data:

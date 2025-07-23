@@ -74,7 +74,7 @@ async def get_category(
             supabase.table("categories_grades")
             .select("*")
             .eq("id", str(category_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         data = result.data or []
@@ -104,7 +104,7 @@ async def update_category(
             supabase.table("categories_grades")
             .update(update_data)
             .eq("id", str(category_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         data = result.data or []
@@ -132,7 +132,7 @@ async def delete_category(
             supabase.table("categories_grades")
             .delete()
             .eq("id", str(category_id))
-            .eq("user_id", current_user["id"])
+            .eq("user_id", current_user["user_id"])
             .execute()
         )
         if not result.data:
