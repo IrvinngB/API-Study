@@ -56,7 +56,7 @@ async def create_grade(
     """
     try:
         supabase = get_user_supabase(current_user["token"])
-        data = payload.model_dump(mode="json")
+        data = payload.model_dump(mode="json", exclude_none=True)
         data["user_id"] = current_user["user_id"]
 
         result = supabase.table("grades").insert(data).execute()
