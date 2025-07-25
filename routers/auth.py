@@ -4,8 +4,15 @@ from models import UserProfile, UserProfileCreate, UserProfileUpdate
 from auth_middleware import get_current_user
 from typing import Dict, Any
 from pydantic import BaseModel
+import requests
+import os
 
 router = APIRouter()
+
+# Configuración de Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://llnmvrxgiykxeiinycbt.supabase.co")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "tu_service_role_key_aqui")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm12cnhnaXlreGVpaW55Y2J0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAzMDA0NjIsImV4cCI6MjA2NTg3NjQ2Mn0.TCuyoJagBgoOhVnsCQabuXmeFy1o0QeEMR6e1gL40MI")
 
 class SignUpRequest(BaseModel):
     email: str
@@ -16,14 +23,23 @@ class SignInRequest(BaseModel):
     email: str
     password: str
 
+class ResetPasswordRequest(BaseModel):
+    email: str
+
+class UpdatePasswordRequest(BaseModel):
+    password: str
+
 @router.post("/signup")
 async def signup(request: SignUpRequest):
-    """Sign up a new user"""
+    """Sign up a new user with email confirmation redirect"""
     try:
         supabase = get_supabase_anon()
         response = supabase.auth.sign_up({
             "email": request.email,
-            "password": request.password
+            "password": request.password,
+            "options": {
+                "emailRedirectTo": "studyvault://confirm-email"
+            }
         })
         
         if response.user:
@@ -46,9 +62,10 @@ async def signup(request: SignUpRequest):
                 # Don't fail the signup if profile creation fails, but log it
             
             return {
-                "message": "User created successfully",
+                "message": "Usuario creado exitosamente. Revisa tu email para confirmar tu cuenta.",
                 "user": response.user,
-                "session": response.session
+                "session": response.session,
+                "email_confirmation_required": True
             }
         else:
             raise HTTPException(
@@ -103,6 +120,101 @@ async def signout(current_user: Dict[str, Any] = Depends(get_current_user)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+@router.post("/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Send password reset email using Supabase REST API"""
+    try:
+        url = f"{SUPABASE_URL}/auth/v1/recover"
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            "Content-Type": "application/json",
+        }
+        
+        payload = {
+            "email": request.email,
+            "options": {
+                "redirectTo": "studyvault://reset-password"
+            }
+        }
+        
+        # Usar requests para hacer la llamada directa a Supabase
+        try:
+            import requests
+            response = requests.post(url, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                return {
+                    "message": "Si el email existe en nuestro sistema, recibirás un enlace para restablecer tu contraseña."
+                }
+            else:
+                # Log del error para debugging
+                print(f"Supabase error: {response.status_code} - {response.text}")
+                
+        except ImportError:
+            # Fallback usando supabase client si requests no está disponible
+            supabase = get_supabase_anon()
+            response = supabase.auth.reset_password_email(request.email, {
+                "redirectTo": "studyvault://reset-password"
+            })
+        
+        return {
+            "message": "Si el email existe en nuestro sistema, recibirás un enlace para restablecer tu contraseña."
+        }
+        
+    except Exception as e:
+        # Por seguridad, no revelamos si el email existe o no
+        print(f"Reset password error: {e}")
+        return {
+            "message": "Si el email existe en nuestro sistema, recibirás un enlace para restablecer tu contraseña."
+        }
+
+@router.post("/update-password")
+async def update_password(
+    request: UpdatePasswordRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Update user password (used after reset)"""
+    try:
+        supabase = get_user_supabase(current_user["token"])
+        response = supabase.auth.update_user({
+            "password": request.password
+        })
+        
+        if response.user:
+            return {"message": "Contraseña actualizada exitosamente"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se pudo actualizar la contraseña"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+@router.post("/resend-confirmation")
+async def resend_confirmation_email(request: ResetPasswordRequest):
+    """Resend email confirmation with proper redirect"""
+    try:
+        supabase = get_supabase_anon()
+        response = supabase.auth.resend(request.email, type='signup', options={
+            "emailRedirectTo": "studyvault://confirm-email"
+        })
+        
+        return {
+            "message": "Si el email existe y no está confirmado, recibirás un nuevo enlace de confirmación."
+        }
+        
+    except Exception as e:
+        # Por seguridad, no revelamos si el email existe o no
+        print(f"Resend confirmation error: {e}")
+        return {
+            "message": "Si el email existe y no está confirmado, recibirás un nuevo enlace de confirmación."
+        }
 
 @router.get("/profile", response_model=UserProfile)
 async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
