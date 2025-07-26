@@ -35,6 +35,7 @@ class UserProfileUpdate(BaseModel):
     avatar_url: Optional[str] = None
     timezone: Optional[str] = None
     preferences: Optional[Dict[str, Any]] = None
+    subscription_tier: Optional[str] = None
 
 
 # --------- Class Models ---------
