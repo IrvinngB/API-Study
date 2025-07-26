@@ -15,33 +15,45 @@ async def get_current_user_profile(
     try:
         supabase = get_user_supabase(current_user["token"])
         response = supabase.table("user_profiles").select("*").eq("id", current_user["user_id"]).execute()
-        
+
         if response.data:
+            print(f"📋 Retrieved profile data: {response.data[0]}")
             return response.data[0]
         else:
-            # Profile doesn't exist, create it
-            print(f"📝 Creating missing profile for user: {current_user['user_id']}")
-            profile_data = {
+            # Check if a profile with the same email already exists
+            email_check_response = supabase.table("user_profiles").select("*").eq("email", current_user["email"]).execute()
+
+            if email_check_response.data:
+                print(f"⚠️ Profile with email already exists: {email_check_response.data[0]}")
+                return email_check_response.data[0]
+
+            # Create a default profile if none exists
+            default_profile = {
                 "id": current_user["user_id"],
                 "email": current_user["email"],
-                "full_name": None,
-                "timezone": "America/Panama"
+                "full_name": current_user.get("user_metadata", {}).get("full_name", ""),
+                "timezone": "UTC",  # Default timezone
+                "created_at": "now()",
+                "updated_at": "now()"
             }
-            
-            create_response = supabase.table("user_profiles").insert(profile_data).execute()
+
+            create_response = supabase.table("user_profiles").insert(default_profile).execute()
+
             if create_response.data:
+                print(f"✅ Default profile created: {create_response.data[0]}")
                 return create_response.data[0]
             else:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to create user profile"
+                    detail="Failed to create default profile"
                 )
-            
+
     except Exception as e:
+        print(f"❌ Error retrieving or creating profile: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 @router.post("/", response_model=UserProfile)
 async def create_user_profile(
@@ -51,13 +63,19 @@ async def create_user_profile(
     """Create a user profile"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        
+
+        # Check if a profile with the same email already exists
+        existing_profile = supabase.table("user_profiles").select("*").eq("email", profile_data.email).execute()
+        if existing_profile.data:
+            print(f"⚠️ Profile with email already exists: {existing_profile.data[0]}")
+            return existing_profile.data[0]
+
         # Serialize fields properly
         insert_data = profile_data.model_dump(mode='json')
         insert_data["id"] = current_user["user_id"]
-        
+
         response = supabase.table("user_profiles").insert(insert_data).execute()
-        
+
         if response.data:
             return response.data[0]
         else:
@@ -65,12 +83,12 @@ async def create_user_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to create user profile"
             )
-            
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 @router.put("/me", response_model=UserProfile)
 async def update_user_profile(
@@ -99,7 +117,7 @@ async def update_user_profile(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 @router.patch("/me", response_model=UserProfile)
 async def patch_user_profile(
@@ -134,7 +152,7 @@ async def patch_user_profile(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 @router.delete("/me")
 async def delete_user_profile(
@@ -157,4 +175,4 @@ async def delete_user_profile(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e

@@ -32,25 +32,26 @@ async def register_device(
     """Register a new device for the current user"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        
+
         # Check if device already exists
         existing_response = supabase.table("user_devices").select("*").eq("user_id", current_user["user_id"]).eq("device_id", device_data.device_id).execute()
-        
+
         if existing_response.data:
+            print(f"⚠️ Device already exists: {existing_response.data[0]}")
             # Update existing device, serialize fields properly
             update_data = device_data.model_dump(mode='json')
             update_data["last_sync"] = datetime.utcnow().isoformat()
             update_data["is_active"] = True
-            
+
             response = supabase.table("user_devices").update(update_data).eq("user_id", current_user["user_id"]).eq("device_id", device_data.device_id).execute()
             return response.data[0]
         else:
             # Create new device, serialize fields properly
             insert_data = device_data.model_dump(mode='json')
             insert_data["user_id"] = current_user["user_id"]
-            
+
             response = supabase.table("user_devices").insert(insert_data).execute()
-            
+
             if response.data:
                 return response.data[0]
             else:
@@ -58,12 +59,12 @@ async def register_device(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Failed to register device"
                 )
-            
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
 
 @router.get("/{device_id}", response_model=UserDevice)
 async def get_device(
