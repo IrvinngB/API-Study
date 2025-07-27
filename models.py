@@ -78,48 +78,6 @@ class Class(ClassBase):
         from_attributes = True
 
 
-# --------- Task Models ---------
-
-class TaskBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    due_date: Optional[datetime] = None
-    priority: int = Field(default=2, ge=1, le=3)
-    status: str = "pending"
-    estimated_duration: Optional[int] = None
-    completion_percentage: int = Field(default=0, ge=0, le=100)
-    tags: List[str] = []
-
-
-class TaskCreate(TaskBase):
-    class_id: Optional[UUID] = None
-    device_created: Optional[str] = None
-
-
-class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    due_date: Optional[datetime] = None
-    priority: Optional[int] = Field(None, ge=1, le=3)
-    status: Optional[str] = None
-    estimated_duration: Optional[int] = None
-    completion_percentage: Optional[int] = Field(None, ge=0, le=100)
-    tags: Optional[List[str]] = None
-    completed_at: Optional[datetime] = None
-
-
-class Task(TaskBase):
-    id: UUID
-    user_id: UUID
-    class_id: Optional[UUID] = None
-    device_created: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-    completed_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
 
 # --------- Calendar Event Models ---------
 
@@ -284,6 +242,7 @@ class GradeBase(BaseModel):
     calendar_event_id: Optional[UUID] = Field(default=None)
     event_type: Optional[str] = Field(default=None)
     graded_at: Optional[datetime] = None
+    value: Optional[float] = None
 
     class Config:
         validate_assignment = True
@@ -303,6 +262,7 @@ class GradeUpdate(BaseModel):
     calendar_event_id: Optional[UUID] = None
     event_type: Optional[str] = None
     graded_at: Optional[datetime] = None
+    value: Optional[float] = None
 
     class Config:
         validate_assignment = True
@@ -313,6 +273,7 @@ class Grade(GradeBase):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+    value: Optional[float] = None
 
     class Config:
         json_encoders = {
