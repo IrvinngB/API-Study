@@ -382,3 +382,90 @@ class UserDevice(UserDeviceBase):
 
     class Config:
         from_attributes = True
+
+
+# --- Modelos para las vistas SQL ---
+
+class CalendarWithGrades(BaseModel):
+    id: UUID
+    user_id: UUID
+    class_id: Optional[UUID]
+    title: str
+    description: Optional[str]
+    start_datetime: datetime
+    end_datetime: datetime
+    location: Optional[str]
+    google_calendar_id: Optional[str]
+    event_type: Optional[str]
+    is_recurring: Optional[bool]
+    recurrence_pattern: Optional[Dict[str, Any]]
+    reminder_minutes: Optional[int]
+    external_calendar_sync: Optional[Dict[str, Any]]
+    created_at: datetime
+    updated_at: datetime
+    grade_id: Optional[UUID]
+    grade_title: Optional[str]
+    grade_description: Optional[str]
+    score: Optional[float]
+    max_score: Optional[float]
+    graded_at: Optional[datetime]
+    category_id: Optional[UUID]
+    grade_value: Optional[float]
+
+
+class GradeByCategory(BaseModel):
+    grade_id: UUID
+    user_id: UUID
+    class_id: UUID
+    category_id: UUID
+    category_name: Optional[str]
+    category_percentage: Optional[float]
+    grade_title: Optional[str]
+    grade_description: Optional[str]
+    score: Optional[float]
+    max_score: Optional[float]
+    graded_at: Optional[datetime]
+    calendar_event_id: Optional[UUID]
+    grade_value: Optional[float]
+
+
+class GradeByCourse(BaseModel):
+    grade_id: UUID
+    user_id: UUID
+    class_id: UUID
+    class_name: Optional[str]
+    grade_title: Optional[str]
+    grade_description: Optional[str]
+    score: Optional[float]
+    max_score: Optional[float]
+    graded_at: Optional[datetime]
+    category_id: Optional[UUID]
+    calendar_event_id: Optional[UUID]
+    grade_value: Optional[float]
+
+
+class CalendarGradesLinked(BaseModel):
+    id: UUID
+    user_id: UUID
+    class_id: Optional[UUID]
+    title: str
+    description: Optional[str]
+    start_datetime: datetime
+    end_datetime: datetime
+    location: Optional[str]
+    google_calendar_id: Optional[str]
+    event_type: Optional[str]
+    is_recurring: Optional[bool]
+    recurrence_pattern: Optional[Dict[str, Any]]
+    reminder_minutes: Optional[int]
+    external_calendar_sync: Optional[Dict[str, Any]]
+    created_at: datetime
+    updated_at: datetime
+    grade_id: UUID
+    grade_title: Optional[str]
+    grade_description: Optional[str]
+    score: Optional[float]
+    max_score: Optional[float]
+    graded_at: Optional[datetime]
+    category_id: Optional[UUID]
+    grade_value: Optional[float]

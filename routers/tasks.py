@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from database import get_user_supabase
-from models import Task, TaskCreate, TaskUpdate
+from models import Task, TaskCreate, TaskUpdate, CalendarWithGrades, GradeByCategory, GradeByCourse, CalendarGradesLinked
 from auth_middleware import get_current_user
 from typing import List, Dict, Any, Optional
 from uuid import UUID
@@ -8,216 +8,119 @@ from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Task])
-async def get_tasks(
-    current_user: Dict[str, Any] = Depends(get_current_user),
-    class_id: Optional[UUID] = Query(None),
-    status: Optional[str] = Query(None),
-    priority: Optional[int] = Query(None),
-    limit: int = Query(100, le=1000)
-):
-    """Get tasks for the current user with optional filters"""
-    try:
-        supabase = get_user_supabase(current_user["token"])
-        query = supabase.table("tasks").select("*").eq("user_id", current_user["user_id"])
-        
-        if class_id:
-            query = query.eq("class_id", str(class_id))
-        if status:
-            query = query.eq("status", status)
-        if priority:
-            query = query.eq("priority", priority)
-            
-        query = query.limit(limit).order("created_at", desc=True)
-        response = query.execute()
-        
-        return response.data
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+# --- ENDPOINTS PARA VISTAS SQL (usando Supabase) ---
 
-@router.post("/", response_model=Task)
-async def create_task(
-    task_data: TaskCreate,
+@router.get("/vw/calendar-with-grades", response_model=List[CalendarWithGrades])
+async def get_calendar_with_grades(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Create a new task"""
+    """Get calendar with grades view for the authenticated user"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        
-        # Serialize datetime fields properly
-        insert_data = task_data.model_dump(mode='json')
-        insert_data["user_id"] = current_user["user_id"]
-        
-        response = supabase.table("tasks").insert(insert_data).execute()
-        
-        if response.data:
-            return response.data[0]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to create task"
-            )
-            
-    except Exception as e:
+        result = (
+            supabase
+            .table("vw_calendar_with_grades")
+            .select("*")
+            .eq("user_id", current_user["user_id"])
+            .execute()
+        )
+        return result.data or []
+    except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Error fetching calendar with grades: {exc}"
         )
 
-@router.get("/{task_id}", response_model=Task)
-async def get_task(
-    task_id: UUID,
+@router.get("/vw/grades-by-category", response_model=List[GradeByCategory])
+async def get_grades_by_category(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Get a specific task"""
+    """Get grades by category view for the authenticated user"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        response = supabase.table("tasks").select("*").eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
-        
-        if response.data:
-            return response.data[0]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
-            
-    except Exception as e:
+        result = (
+            supabase
+            .table("vw_grades_by_category")
+            .select("*")
+            .eq("user_id", current_user["user_id"])
+            .execute()
+        )
+        return result.data or []
+    except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Error fetching grades by category: {exc}"
         )
 
-@router.put("/{task_id}", response_model=Task)
-async def update_task(
-    task_id: UUID,
-    task_update: TaskUpdate,
+@router.get("/vw/grades-by-course", response_model=List[GradeByCourse])
+async def get_grades_by_course(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Update a task"""
+    """Get grades by course view for the authenticated user"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        
-        # Serialize datetime fields properly
-        update_data = task_update.model_dump(exclude_unset=True, mode='json')
-        update_data["updated_at"] = "now()"
-        
-        # If marking as completed, set completed_at
-        if update_data.get("status") == "completed" and not update_data.get("completed_at"):
-            update_data["completed_at"] = datetime.utcnow().isoformat()
-        
-        response = supabase.table("tasks").update(update_data).eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
-        
-        if response.data:
-            return response.data[0]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
-            
-    except Exception as e:
+        result = (
+            supabase
+            .table("vw_grades_by_course")
+            .select("*")
+            .eq("user_id", current_user["user_id"])
+            .execute()
+        )
+        return result.data or []
+    except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Error fetching grades by course: {exc}"
         )
 
-@router.patch("/{task_id}", response_model=Task)
-async def patch_task(
-    task_id: UUID,
-    task_update: TaskUpdate,
+@router.get("/vw/calendar-grades-linked", response_model=List[CalendarGradesLinked])
+async def get_calendar_grades_linked(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Partially update a task (PATCH method)"""
+    """Get calendar grades linked view for the authenticated user"""
     try:
         supabase = get_user_supabase(current_user["token"])
-        
-        # Only include non-None values in the update, serialize datetime properly
-        update_data = task_update.model_dump(exclude_unset=True, exclude_none=True, mode='json')
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields provided for update"
-            )
-            
-        update_data["updated_at"] = "now()"
-        
-        # If marking as completed, set completed_at
-        if update_data.get("status") == "completed" and not update_data.get("completed_at"):
-            update_data["completed_at"] = datetime.utcnow().isoformat()
-        
-        response = supabase.table("tasks").update(update_data).eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
-        
-        if response.data:
-            return response.data[0]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
-            
-    except Exception as e:
+        result = (
+            supabase
+            .table("vw_calendar_grades_linked")
+            .select("*")
+            .eq("user_id", current_user["user_id"])
+            .execute()
+        )
+        return result.data or []
+    except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Error fetching calendar grades linked: {exc}"
         )
 
-@router.delete("/{task_id}")
-async def delete_task(
-    task_id: UUID,
-    current_user: Dict[str, Any] = Depends(get_current_user)
-):
-    """Delete a task"""
-    try:
-        supabase = get_user_supabase(current_user["token"])
-        response = supabase.table("tasks").delete().eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
-        
-        if response.data:
-            return {"message": "Task deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
-            
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
 
-@router.post("/{task_id}/complete")
-async def complete_task(
-    task_id: UUID,
+
+# --- PATCH ÚNICO PARA ACTUALIZAR VALUE DE GRADES ---
+@router.patch("/{grade_id}/complete", status_code=status.HTTP_200_OK)
+async def complete_grade(
+    grade_id: UUID,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Mark a task as completed"""
+    """
+    Cambia el valor de grades.value de 1 a 0 para la calificación indicada.
+    """
     try:
         supabase = get_user_supabase(current_user["token"])
-        
-        update_data = {
-            "status": "completed",
-            "completion_percentage": 100,
-            "completed_at": datetime.utcnow().isoformat(),
-            "updated_at": "now()"
-        }
-        
-        response = supabase.table("tasks").update(update_data).eq("id", str(task_id)).eq("user_id", current_user["user_id"]).execute()
-        
-        if response.data:
-            return response.data[0]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found"
-            )
-            
+        result = (
+            supabase
+            .table("grades")
+            .update({"value": 0})
+            .eq("id", str(grade_id))
+            .eq("user_id", current_user["user_id"])
+            .eq("value", 1)
+            .execute()
+        )
+        if not result.data:
+            return {"message": "Grade was already 0 or not found."}
+        return {"message": "Grade value updated to 0."}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=f"Error updating grade value: {e}"
         )
