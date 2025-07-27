@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from database import get_user_supabase
-from models import Task, TaskCreate, TaskUpdate, CalendarWithGrades, GradeByCategory, GradeByCourse, CalendarGradesLinked
+from models import CalendarWithGrades, GradeByCategory, GradeByCourse, CalendarGradesLinked
 from auth_middleware import get_current_user
 from typing import List, Dict, Any, Optional
 from uuid import UUID
