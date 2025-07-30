@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from database import get_supabase_anon, get_user_supabase, get_supabase_service
 from models import UserProfile, UserProfileCreate, UserProfileUpdate
-from auth_middleware import get_current_user
+from auth_middleware import get_current_user, get_optional_current_user
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, EmailStr
 import requests
@@ -33,6 +33,7 @@ class ResetPasswordRequest(BaseModel):
 
 class UpdatePasswordRequest(BaseModel):
     password: str
+    recovery_token: Optional[str] = None
 
 class AuthResponse(BaseModel):
     message: str
@@ -263,11 +264,11 @@ async def reset_password(request: ResetPasswordRequest):
 @router.post("/update-password")
 async def update_password(
     request: UpdatePasswordRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user)
 ):
     """
     Actualizar contraseña del usuario
-    Requiere que el usuario esté autenticado (tiene token válido de reset)
+    Puede usar autenticación normal o token de recuperación de Supabase
     """
     try:
         # Validar fortaleza de contraseña
@@ -277,23 +278,82 @@ async def update_password(
                 detail="La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números"
             )
 
-        supabase = get_user_supabase(current_user["token"])
-        response = supabase.auth.update_user({
-            "password": request.password
-        })
+        # Si tenemos un token de recuperación, usarlo
+        if request.recovery_token:
+            logger.info(f"🔄 Updating password using recovery token")
+            
+            try:
+                # Usar el token de recuperación para actualizar la contraseña
+                supabase = get_supabase_anon()
+                response = supabase.auth.update_user({
+                    "password": request.password
+                }, {
+                    "headers": {
+                        "Authorization": f"Bearer {request.recovery_token}"
+                    }
+                })
+                
+                if response.user:
+                    logger.info(f"✅ Password updated using recovery token for user: {response.user.id}")
+                    return {
+                        "message": "Contraseña actualizada exitosamente",
+                        "success": True
+                    }
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="No se pudo actualizar la contraseña con el token de recuperación"
+                    )
+                    
+            except Exception as recovery_error:
+                logger.error(f"❌ Recovery token error: {recovery_error}")
+                error_message = str(recovery_error)
+                
+                if "invalid_token" in error_message.lower() or "expired" in error_message.lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="El enlace de restablecimiento ha expirado. Solicita un nuevo enlace."
+                    )
+                elif "weak_password" in error_message.lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="La contraseña es muy débil"
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Error al actualizar la contraseña con el token de recuperación"
+                    )
         
-        if response.user:
-            logger.info(f"✅ Password updated for user: {response.user.id}")
-            return {
-                "message": "Contraseña actualizada exitosamente",
-                "success": True
-            }
+        # Si no hay token de recuperación, usar autenticación normal
+        elif current_user:
+            logger.info(f"🔄 Updating password using normal authentication for user: {current_user['user_id']}")
+            
+            supabase = get_user_supabase(current_user["token"])
+            response = supabase.auth.update_user({
+                "password": request.password
+            })
+            
+            if response.user:
+                logger.info(f"✅ Password updated for user: {response.user.id}")
+                return {
+                    "message": "Contraseña actualizada exitosamente",
+                    "success": True
+                }
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se pudo actualizar la contraseña"
+                )
         else:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No se pudo actualizar la contraseña"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Se requiere autenticación o token de recuperación válido"
             )
             
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         logger.error(f"❌ Update password error: {e}")
         error_message = str(e)
