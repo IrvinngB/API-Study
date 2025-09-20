@@ -1,5 +1,6 @@
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from database import get_user_supabase
 from models import Note, NoteCreate, NoteUpdate
 from auth_middleware import get_current_user
@@ -8,6 +9,9 @@ from uuid import UUID
 from datetime import date, datetime
 import os
 import httpx
+import shutil
+import uuid
+from pathlib import Path
 
 router = APIRouter()
 
@@ -314,5 +318,209 @@ async def generate_ai_summary(
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update note with AI summary")
 
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+# File management endpoints
+@router.post("/{note_id}/upload-file")
+async def upload_file_to_note(
+    note_id: UUID,
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Upload a file attachment to a note"""
+    try:
+        # Verify note exists and belongs to user
+        supabase = get_user_supabase(current_user["token"])
+        note_response = supabase.table("notes").select("*").eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if not note_response.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        
+        note = note_response.data[0]
+        
+        # Create uploads directory if it doesn't exist
+        uploads_dir = Path("uploads") / "notes" / str(note_id)
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_extension = Path(file.filename).suffix if file.filename else ""
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = uploads_dir / unique_filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Get file info
+        file_size = file_path.stat().st_size
+        
+        # Update note attachments
+        current_attachments = note.get("attachments", [])
+        new_attachment = {
+            "filename": file.filename,
+            "type": "document" if file_extension in ['.pdf', '.doc', '.docx', '.txt'] else "other",
+            "size": file_size,
+            "local_path": str(file_path),
+            "mime_type": file.content_type,
+            "uploaded_at": datetime.now().isoformat()
+        }
+        
+        current_attachments.append(new_attachment)
+        
+        # Update note in database
+        update_response = supabase.table("notes").update({
+            "attachments": current_attachments,
+            "updated_at": "now()"
+        }).eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if update_response.data:
+            return {
+                "message": "File uploaded successfully",
+                "attachment": new_attachment,
+                "file_path": str(file_path)
+            }
+        else:
+            # Clean up file if database update fails
+            file_path.unlink()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update note with file attachment")
+            
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.get("/{note_id}/download/{file_id}")
+async def download_file_from_note(
+    note_id: UUID,
+    file_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Download a file attachment from a note"""
+    try:
+        # Verify note exists and belongs to user
+        supabase = get_user_supabase(current_user["token"])
+        note_response = supabase.table("notes").select("*").eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if not note_response.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        
+        note = note_response.data[0]
+        attachments = note.get("attachments", [])
+        
+        # Find the file by filename or index
+        try:
+            file_index = int(file_id)
+            if file_index >= len(attachments):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+            attachment = attachments[file_index]
+        except ValueError:
+            # Search by filename
+            attachment = next((att for att in attachments if att.get("filename") == file_id), None)
+            if not attachment:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        
+        file_path = Path(attachment["local_path"])
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
+        
+        return FileResponse(
+            path=str(file_path),
+            filename=attachment["filename"],
+            media_type=attachment.get("mime_type", "application/octet-stream")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.delete("/{note_id}/files/{file_id}")
+async def delete_file_from_note(
+    note_id: UUID,
+    file_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Delete a file attachment from a note"""
+    try:
+        # Verify note exists and belongs to user
+        supabase = get_user_supabase(current_user["token"])
+        note_response = supabase.table("notes").select("*").eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if not note_response.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        
+        note = note_response.data[0]
+        attachments = note.get("attachments", [])
+        
+        # Find the file
+        try:
+            file_index = int(file_id)
+            if file_index >= len(attachments):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+            attachment = attachments[file_index]
+        except ValueError:
+            # Search by filename
+            attachment = next((att for att in attachments if att.get("filename") == file_id), None)
+            if not attachment:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        
+        # Remove file from filesystem
+        file_path = Path(attachment["local_path"])
+        if file_path.exists():
+            file_path.unlink()
+        
+        # Remove from attachments list
+        new_attachments = [att for att in attachments if att != attachment]
+        
+        # Update note in database
+        update_response = supabase.table("notes").update({
+            "attachments": new_attachments,
+            "updated_at": "now()"
+        }).eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if update_response.data:
+            return {"message": "File deleted successfully"}
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update note")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.get("/{note_id}/files")
+async def list_note_files(
+    note_id: UUID,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """List all file attachments for a note"""
+    try:
+        # Verify note exists and belongs to user
+        supabase = get_user_supabase(current_user["token"])
+        note_response = supabase.table("notes").select("*").eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
+        
+        if not note_response.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+        
+        note = note_response.data[0]
+        attachments = note.get("attachments", [])
+        
+        # Return file info without local paths
+        file_list = []
+        for i, attachment in enumerate(attachments):
+            file_info = {
+                "id": i,
+                "filename": attachment.get("filename"),
+                "type": attachment.get("type"),
+                "size": attachment.get("size"),
+                "mime_type": attachment.get("mime_type"),
+                "uploaded_at": attachment.get("uploaded_at")
+            }
+            file_list.append(file_info)
+        
+        return {"files": file_list}
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
