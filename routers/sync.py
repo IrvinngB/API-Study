@@ -27,7 +27,7 @@ async def pull_data(
         supabase.table("user_devices").upsert(device_data, on_conflict="user_id,device_id").execute()
         
         sync_data = {}
-        tables_to_sync = sync_request.tables or ["classes", "tasks", "calendar_events", "habits", "habit_logs"]
+        tables_to_sync = sync_request.tables or ["classes", "tasks", "calendar_events", "notes", "grades", "notifications", "user_profiles"]
         
         for table in tables_to_sync:
             query = supabase.table(table).select("*").eq("user_id", current_user["user_id"])
@@ -88,7 +88,7 @@ async def push_data(
         supabase = get_user_supabase(current_user["token"])
         
         # Validate table name
-        allowed_tables = ["classes", "tasks", "calendar_events", "habits", "habit_logs"]
+        allowed_tables = ["classes", "tasks", "calendar_events", "notes", "grades", "notifications", "user_profiles"]
         if table_name not in allowed_tables:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
