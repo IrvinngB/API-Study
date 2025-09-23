@@ -368,23 +368,47 @@ async def upload_file_to_note(
         print(f"📁 Backend: Storage path: {storage_path}")
         print(f"📁 Backend: Subiendo a Supabase Storage...")
         
-        storage_response = supabase.storage.from_("archivos").upload(
-            path=storage_path,
-            file=file_content,
-            file_options={
-                "content-type": content_type,
-                "upsert": False
-            }
-        )
+        # Verificar que el bucket existe
+        try:
+            bucket_info = supabase.storage.list_buckets()
+            print(f"📁 Backend: Available buckets: {[b['name'] for b in bucket_info] if bucket_info else 'None'}")
+        except Exception as bucket_error:
+            print(f"📁 Backend: Error listing buckets: {bucket_error}")
+        
+        try:
+            storage_response = supabase.storage.from_("archivos").upload(
+                path=storage_path,
+                file=file_content,
+                file_options={
+                    "content-type": content_type,
+                    "upsert": False
+                }
+            )
+        except Exception as upload_error:
+            print(f"📁 Backend: Error during upload: {upload_error}")
+            print(f"📁 Backend: Error type: {type(upload_error)}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Upload error: {str(upload_error)}")
         
         print(f"📁 Backend: Storage response: {storage_response}")
+        print(f"📁 Backend: Storage response type: {type(storage_response)}")
         
-        if not storage_response:
+        # Verificar si la respuesta es exitosa
+        if storage_response is None or storage_response is False:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to upload file to storage")
         
+        # Si la respuesta es un diccionario con error
+        if isinstance(storage_response, dict) and "error" in storage_response:
+            print(f"📁 Backend: Storage error: {storage_response['error']}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Storage error: {storage_response['error']}")
+        
         # Get public URL
-        public_url_response = supabase.storage.from_("archivos").get_public_url(storage_path)
-        public_url = public_url_response.get("publicURL") if public_url_response else None
+        try:
+            public_url_response = supabase.storage.from_("archivos").get_public_url(storage_path)
+            print(f"📁 Backend: Public URL response: {public_url_response}")
+            public_url = public_url_response.get("publicURL") if isinstance(public_url_response, dict) else None
+        except Exception as url_error:
+            print(f"📁 Backend: Error getting public URL: {url_error}")
+            public_url = None
         
         # Determine file type
         file_type = "document" if file_extension.lower() in ['.pdf', '.doc', '.docx', '.txt', '.rtf'] else \
