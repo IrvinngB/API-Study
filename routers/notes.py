@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from database import get_user_supabase
+from database import get_user_supabase, get_supabase_with_s3_credentials
 from models import Note, NoteCreate, NoteUpdate
 from auth_middleware import get_current_user
 from typing import List, Dict, Any, Optional
@@ -345,6 +345,9 @@ async def upload_file_to_note(
         
         note = note_response.data[0]
         
+        # Get Supabase client with S3 credentials for storage operations
+        storage_supabase = get_supabase_with_s3_credentials()
+        
         # Read file content
         file_content = await file.read()
         file_size = len(file_content)
@@ -370,13 +373,13 @@ async def upload_file_to_note(
         
         # Verificar que el bucket existe
         try:
-            bucket_info = supabase.storage.list_buckets()
+            bucket_info = storage_supabase.storage.list_buckets()
             print(f"📁 Backend: Available buckets: {[b['name'] for b in bucket_info] if bucket_info else 'None'}")
         except Exception as bucket_error:
             print(f"📁 Backend: Error listing buckets: {bucket_error}")
         
         try:
-            storage_response = supabase.storage.from_("archivos").upload(
+            storage_response = storage_supabase.storage.from_("archivos").upload(
                 path=storage_path,
                 file=file_content,
                 file_options={
@@ -403,7 +406,7 @@ async def upload_file_to_note(
         
         # Get public URL
         try:
-            public_url_response = supabase.storage.from_("archivos").get_public_url(storage_path)
+            public_url_response = storage_supabase.storage.from_("archivos").get_public_url(storage_path)
             print(f"📁 Backend: Public URL response: {public_url_response}")
             public_url = public_url_response.get("publicURL") if isinstance(public_url_response, dict) else None
         except Exception as url_error:
@@ -445,7 +448,7 @@ async def upload_file_to_note(
         else:
             # Clean up file from storage if database update fails
             try:
-                supabase.storage.from_("archivos").remove([storage_path])
+                storage_supabase.storage.from_("archivos").remove([storage_path])
             except:
                 pass  # Ignore cleanup errors
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update note with file attachment")
@@ -491,7 +494,8 @@ async def download_file_from_note(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File storage path not found")
         
         # Download file from Supabase Storage
-        file_response = supabase.storage.from_("archivos").download(storage_path)
+        storage_supabase = get_supabase_with_s3_credentials()
+        file_response = storage_supabase.storage.from_("archivos").download(storage_path)
         
         if not file_response:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in storage")
@@ -547,7 +551,8 @@ async def delete_file_from_note(
         storage_path = attachment.get("storage_path")
         if storage_path:
             try:
-                supabase.storage.from_("archivos").remove([storage_path])
+                storage_supabase = get_supabase_with_s3_credentials()
+                storage_supabase.storage.from_("archivos").remove([storage_path])
             except Exception as e:
                 print(f"Warning: Failed to delete file from storage: {e}")
                 # Continue with database update even if storage deletion fails
