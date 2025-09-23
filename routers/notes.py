@@ -12,6 +12,7 @@ import httpx
 import shutil
 import uuid
 from pathlib import Path
+import mimetypes
 
 router = APIRouter()
 
@@ -328,7 +329,7 @@ async def upload_file_to_note(
     file: UploadFile = File(...),
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Upload a file attachment to a note"""
+    """Upload a file attachment to a note using Supabase Storage"""
     try:
         # Verify note exists and belongs to user
         supabase = get_user_supabase(current_user["token"])
@@ -339,29 +340,52 @@ async def upload_file_to_note(
         
         note = note_response.data[0]
         
-        # Create uploads directory if it doesn't exist
-        uploads_dir = Path("uploads") / "notes" / str(note_id)
-        uploads_dir.mkdir(parents=True, exist_ok=True)
+        # Read file content
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        # Check file size (10MB limit)
+        if file_size > 10 * 1024 * 1024:  # 10MB in bytes
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File size exceeds 10MB limit")
         
         # Generate unique filename
         file_extension = Path(file.filename).suffix if file.filename else ""
         unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_path = uploads_dir / unique_filename
         
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Create path in Supabase Storage bucket
+        storage_path = f"notes/{note_id}/{unique_filename}"
         
-        # Get file info
-        file_size = file_path.stat().st_size
+        # Upload to Supabase Storage
+        storage_response = supabase.storage.from_("archivos").upload(
+            path=storage_path,
+            file=file_content,
+            file_options={
+                "content-type": file.content_type or mimetypes.guess_type(file.filename)[0],
+                "upsert": False
+            }
+        )
+        
+        if not storage_response:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to upload file to storage")
+        
+        # Get public URL
+        public_url_response = supabase.storage.from_("archivos").get_public_url(storage_path)
+        public_url = public_url_response.get("publicURL") if public_url_response else None
+        
+        # Determine file type
+        file_type = "document" if file_extension.lower() in ['.pdf', '.doc', '.docx', '.txt', '.rtf'] else \
+                   "image" if file_extension.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.webp'] else \
+                   "audio" if file_extension.lower() in ['.mp3', '.wav', '.ogg', '.m4a'] else \
+                   "video" if file_extension.lower() in ['.mp4', '.avi', '.mov', '.wmv'] else "other"
         
         # Update note attachments
         current_attachments = note.get("attachments", [])
         new_attachment = {
             "filename": file.filename,
-            "type": "document" if file_extension in ['.pdf', '.doc', '.docx', '.txt'] else "other",
+            "type": file_type,
             "size": file_size,
-            "local_path": str(file_path),
+            "storage_path": storage_path,
+            "public_url": public_url,
             "mime_type": file.content_type,
             "uploaded_at": datetime.now().isoformat()
         }
@@ -378,13 +402,18 @@ async def upload_file_to_note(
             return {
                 "message": "File uploaded successfully",
                 "attachment": new_attachment,
-                "file_path": str(file_path)
+                "file_path": storage_path
             }
         else:
-            # Clean up file if database update fails
-            file_path.unlink()
+            # Clean up file from storage if database update fails
+            try:
+                supabase.storage.from_("archivos").remove([storage_path])
+            except:
+                pass  # Ignore cleanup errors
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update note with file attachment")
             
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -394,7 +423,7 @@ async def download_file_from_note(
     file_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Download a file attachment from a note"""
+    """Download a file attachment from a note using Supabase Storage"""
     try:
         # Verify note exists and belongs to user
         supabase = get_user_supabase(current_user["token"])
@@ -418,15 +447,27 @@ async def download_file_from_note(
             if not attachment:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
         
-        file_path = Path(attachment["local_path"])
+        # Get storage path from attachment
+        storage_path = attachment.get("storage_path")
+        if not storage_path:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File storage path not found")
         
-        if not file_path.exists():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
+        # Download file from Supabase Storage
+        file_response = supabase.storage.from_("archivos").download(storage_path)
         
-        return FileResponse(
-            path=str(file_path),
-            filename=attachment["filename"],
-            media_type=attachment.get("mime_type", "application/octet-stream")
+        if not file_response:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found in storage")
+        
+        # Create a temporary file response
+        from fastapi.responses import StreamingResponse
+        import io
+        
+        file_content = io.BytesIO(file_response)
+        
+        return StreamingResponse(
+            io.BytesIO(file_content.getvalue()),
+            media_type=attachment.get("mime_type", "application/octet-stream"),
+            headers={"Content-Disposition": f"attachment; filename={attachment['filename']}"}
         )
         
     except HTTPException:
@@ -440,7 +481,7 @@ async def delete_file_from_note(
     file_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Delete a file attachment from a note"""
+    """Delete a file attachment from a note using Supabase Storage"""
     try:
         # Verify note exists and belongs to user
         supabase = get_user_supabase(current_user["token"])
@@ -464,10 +505,14 @@ async def delete_file_from_note(
             if not attachment:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
         
-        # Remove file from filesystem
-        file_path = Path(attachment["local_path"])
-        if file_path.exists():
-            file_path.unlink()
+        # Remove file from Supabase Storage
+        storage_path = attachment.get("storage_path")
+        if storage_path:
+            try:
+                supabase.storage.from_("archivos").remove([storage_path])
+            except Exception as e:
+                print(f"Warning: Failed to delete file from storage: {e}")
+                # Continue with database update even if storage deletion fails
         
         # Remove from attachments list
         new_attachments = [att for att in attachments if att != attachment]
@@ -505,7 +550,7 @@ async def list_note_files(
         note = note_response.data[0]
         attachments = note.get("attachments", [])
         
-        # Return file info without local paths
+        # Return file info with storage information
         file_list = []
         for i, attachment in enumerate(attachments):
             file_info = {
@@ -514,6 +559,7 @@ async def list_note_files(
                 "type": attachment.get("type"),
                 "size": attachment.get("size"),
                 "mime_type": attachment.get("mime_type"),
+                "public_url": attachment.get("public_url"),
                 "uploaded_at": attachment.get("uploaded_at")
             }
             file_list.append(file_info)
