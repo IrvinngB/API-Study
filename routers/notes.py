@@ -331,6 +331,11 @@ async def upload_file_to_note(
 ):
     """Upload a file attachment to a note using Supabase Storage"""
     try:
+        print(f"📁 Backend: Recibiendo archivo para nota {note_id}")
+        print(f"📁 Backend: Filename: {file.filename}")
+        print(f"📁 Backend: Content-Type: {file.content_type}")
+        print(f"📁 Backend: Size: {file.size if hasattr(file, 'size') else 'unknown'}")
+        
         # Verify note exists and belongs to user
         supabase = get_user_supabase(current_user["token"])
         note_response = supabase.table("notes").select("*").eq("id", str(note_id)).eq("user_id", current_user["user_id"]).execute()
@@ -343,6 +348,7 @@ async def upload_file_to_note(
         # Read file content
         file_content = await file.read()
         file_size = len(file_content)
+        print(f"📁 Backend: File content size: {file_size} bytes")
         
         # Check file size (10MB limit)
         if file_size > 10 * 1024 * 1024:  # 10MB in bytes
@@ -351,19 +357,27 @@ async def upload_file_to_note(
         # Generate unique filename
         file_extension = Path(file.filename).suffix if file.filename else ""
         unique_filename = f"{uuid.uuid4()}{file_extension}"
+        print(f"📁 Backend: Unique filename: {unique_filename}")
         
         # Create path in Supabase Storage bucket
         storage_path = f"notes/{note_id}/{unique_filename}"
         
         # Upload to Supabase Storage
+        content_type = file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
+        print(f"📁 Backend: Content-Type final: {content_type}")
+        print(f"📁 Backend: Storage path: {storage_path}")
+        print(f"📁 Backend: Subiendo a Supabase Storage...")
+        
         storage_response = supabase.storage.from_("archivos").upload(
             path=storage_path,
             file=file_content,
             file_options={
-                "content-type": file.content_type or mimetypes.guess_type(file.filename)[0],
+                "content-type": content_type,
                 "upsert": False
             }
         )
+        
+        print(f"📁 Backend: Storage response: {storage_response}")
         
         if not storage_response:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to upload file to storage")
