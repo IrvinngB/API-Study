@@ -392,8 +392,8 @@ async def upload_file_to_note(
                 path=storage_path,
                 file=file_content,
                 file_options={
-                    "content-type": content_type,
-                    "upsert": False
+                    "content-type": content_type
+                    # Removido: "upsert": False - esto causaba el error
                 }
             )
         except Exception as upload_error:
