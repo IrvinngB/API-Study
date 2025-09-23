@@ -35,3 +35,4 @@ htmlcov/
 /.pdm.lock
 /.ruff_cache/
 __pycache__/
+.env

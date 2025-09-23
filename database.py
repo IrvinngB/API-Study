@@ -74,26 +74,15 @@ def get_user_supabase(access_token: str) -> Client:
         
     return client
 
-def get_supabase_with_s3_credentials() -> Client:
-    """Get Supabase client configured with S3 credentials for storage operations"""
-    if not SUPABASE_URL:
+def get_supabase_storage_client() -> Client:
+    """Get Supabase client with service role key for storage operations"""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(status_code=500, detail="Database not configured")
     
     # Create client with service role key for storage operations
+    # The service role key should have full access to storage
     client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     
-    # Configure S3 credentials for storage operations
-    try:
-        # Set S3 credentials in the client options
-        client.options.headers.update({
-            "X-Access-Key": SUPABASE_STORAGE_ACCESS_KEY,
-            "X-Secret-Key": SUPABASE_STORAGE_SECRET_KEY,
-            "X-Region": SUPABASE_STORAGE_REGION
-        })
-        
-        print(f"🔑 S3 Credentials configured - Access Key: {SUPABASE_STORAGE_ACCESS_KEY[:8]}...")
-        
-    except Exception as e:
-        print(f"❌ Error setting S3 credentials: {e}")
-        
+    print(f"🔑 Storage client created with service role key")
+    
     return client

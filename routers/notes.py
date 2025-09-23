@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from database import get_user_supabase, get_supabase_with_s3_credentials
+from database import get_user_supabase, get_supabase_storage_client
 from models import Note, NoteCreate, NoteUpdate
 from auth_middleware import get_current_user
 from typing import List, Dict, Any, Optional
@@ -345,8 +345,8 @@ async def upload_file_to_note(
         
         note = note_response.data[0]
         
-        # Get Supabase client with S3 credentials for storage operations
-        storage_supabase = get_supabase_with_s3_credentials()
+        # Get Supabase client with service role key for storage operations
+        storage_supabase = get_supabase_storage_client()
         
         # Read file content
         file_content = await file.read()
@@ -374,7 +374,16 @@ async def upload_file_to_note(
         # Verificar que el bucket existe
         try:
             bucket_info = storage_supabase.storage.list_buckets()
-            print(f"📁 Backend: Available buckets: {[b['name'] for b in bucket_info] if bucket_info else 'None'}")
+            if bucket_info:
+                bucket_names = []
+                for bucket in bucket_info:
+                    if hasattr(bucket, 'name'):
+                        bucket_names.append(bucket.name)
+                    elif isinstance(bucket, dict):
+                        bucket_names.append(bucket.get('name', 'unknown'))
+                print(f"📁 Backend: Available buckets: {bucket_names}")
+            else:
+                print(f"📁 Backend: No buckets found")
         except Exception as bucket_error:
             print(f"📁 Backend: Error listing buckets: {bucket_error}")
         
@@ -494,7 +503,7 @@ async def download_file_from_note(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File storage path not found")
         
         # Download file from Supabase Storage
-        storage_supabase = get_supabase_with_s3_credentials()
+        storage_supabase = get_supabase_storage_client()
         file_response = storage_supabase.storage.from_("archivos").download(storage_path)
         
         if not file_response:
@@ -551,7 +560,7 @@ async def delete_file_from_note(
         storage_path = attachment.get("storage_path")
         if storage_path:
             try:
-                storage_supabase = get_supabase_with_s3_credentials()
+                storage_supabase = get_supabase_storage_client()
                 storage_supabase.storage.from_("archivos").remove([storage_path])
             except Exception as e:
                 print(f"Warning: Failed to delete file from storage: {e}")
